@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "name": "living_en",
+    "version": "1.0.0",
+    "description": "English Living Category Package",
+    "category": "living",
+    "includes": ["templates", "disclosures", "internal_link_rules"]
+  },
+  "content_map": {
+    "blog_template": "templates/post.md",
+    "disclosures": "legal/disclosures.txt"
+  }
+}

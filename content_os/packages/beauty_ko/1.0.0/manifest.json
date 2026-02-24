@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "name": "beauty_ko",
+    "version": "1.0.0",
+    "description": "Korean Beauty Category Package",
+    "category": "beauty",
+    "includes": ["templates", "compliance_rules", "faq_sets"]
+  },
+  "content_map": {
+    "blog_template": "templates/blog.md",
+    "compliance_rules": "rules/compliance.json",
+    "faq_set": "faqs/common.json"
+  }
+}
