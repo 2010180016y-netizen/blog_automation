@@ -26,3 +26,14 @@ This plugin provides essential SEO meta tags (Canonical, Open Graph, Twitter Car
 - `_cos_noindex` = `1`: force noindex even if published.
 - `_cos_duplicate_of`: canonical target post ID or URL for duplicate/similar pages.
 - Non-eligible posts are rendered with `noindex,follow` and excluded from WP sitemap entries.
+
+
+== Consent Mode + CMP ==
+- For EEA/UK/CH traffic, the plugin sets Google Consent Mode defaults to `denied` and renders a minimal consent banner.
+- For non-target regions, consent defaults to `granted`.
+- The banner persists state in `localStorage`/cookie key `cos_consent_v1` and updates Consent Mode via `gtag('consent', 'update', ...)`.
+- Region detection uses `CF-IPCountry`, `GEOIP_COUNTRY_CODE`, or `X-Country-Code` headers if present.
+
+== Consent Filters ==
+- `cos_seo_consent_enabled`: enable/disable consent system.
+- `cos_seo_consent_regions`: override target country code list (default: EEA/UK/CH).

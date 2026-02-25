@@ -157,3 +157,15 @@ python content_os/scripts/manage_ads_txt.py \
 ### RPM/RPS 기반 실험 규칙
 - `recommend_ad_experiment(rpm, rps, ads_per_page, bounce_rate)`로 `INCREASE_STEP/HOLD/DECREASE` 권고
 - bounce rate가 높거나 ad density cap 도달 시 증량 금지
+
+
+## 11) Global traffic consent baseline (EEA/UK/CH)
+
+WordPress `content-os-seo` plugin now includes a minimal CMP + Google Consent Mode bridge:
+- Target region request headers (`CF-IPCountry`/`GEOIP_COUNTRY_CODE`/`X-Country-Code`) in EEA/UK/CH default to denied storage.
+- Consent banner allows Accept/Reject and updates `gtag('consent', 'update', ...)`.
+- Consent state is persisted in `cos_consent_v1` (localStorage + cookie).
+
+Optional customization via WP filters:
+- `cos_seo_consent_enabled`
+- `cos_seo_consent_regions`
