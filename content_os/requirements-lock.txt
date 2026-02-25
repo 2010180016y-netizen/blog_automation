@@ -1,0 +1,11 @@
+# Offline-friendly baseline lock for content_os runtime/test setup.
+# Build wheels on a connected machine and install with --no-index in restricted networks.
+fastapi==0.115.0
+uvicorn==0.30.6
+pyyaml==6.0.2
+pydantic==2.9.2
+scikit-learn==1.5.2
+numpy==2.1.2
+httpx==0.27.2
+beautifulsoup4==4.12.3
+pytest==8.3.3

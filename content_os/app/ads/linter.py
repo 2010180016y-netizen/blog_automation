@@ -26,10 +26,12 @@ class AdsLinter:
         for ad in ads:
             ad_info = DomUtils.get_element_info(ad)
             
-            # Check immediate siblings for forbidden elements
-            # This is a simplified proxy for 'distance' in static analysis
-            siblings = ad.find_next_siblings() + ad.find_previous_siblings()
+            # Check only immediate siblings for forbidden elements.
+            # This is a simplified proxy for "distance" in static analysis.
+            siblings = [ad.find_next_sibling(), ad.find_previous_sibling()]
             for sibling in siblings:
+                if sibling is None:
+                    continue
                 if sibling.name in self.forbidden_near or "cta-button" in sibling.get('class', []):
                     violations.append({
                         "level": "REJECT",

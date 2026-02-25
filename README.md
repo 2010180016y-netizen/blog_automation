@@ -18,3 +18,14 @@ View your app in AI Studio: https://ai.studio/apps/43714a19-b904-4be1-9d64-55399
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Python tests (content_os)
+
+- Run Python tests from the `content_os` directory:
+  - `cd content_os && python -m pytest -q`
+- Running `pytest` from the repository root may fail due to import path differences.
+
+
+## Unified operations runbook
+
+- See [RUNBOOK.md](./RUNBOOK.md) for unified Node/Python/Publishing/SEO/CI execution steps.

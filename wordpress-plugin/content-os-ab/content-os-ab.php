@@ -21,10 +21,14 @@ require_once COS_AB_PATH . 'includes/render_cta.php';
  */
 function cos_ab_enqueue_scripts() {
     wp_enqueue_script( 'cos-ab-js', COS_AB_URL . 'assets/ab.js', array(), '1.0.0', true );
-    
+
+    $default_api_url = trailingslashit( home_url() ) . 'wp-json/content-os/v1/track/event';
+    $configured_api_url = get_option( 'cos_ab_track_api_url', $default_api_url );
+    $api_url = apply_filters( 'cos_ab_track_api_url', $configured_api_url );
+
     // Pass API endpoint to JS
     wp_localize_script( 'cos-ab-js', 'cosAbConfig', array(
-        'apiUrl' => 'https://ais-dev-g3iljosynuylkdcypc5hpt-144910032017.asia-east1.run.app/track/event', // Placeholder, should be dynamic
+        'apiUrl' => esc_url_raw( $api_url ),
         'contentId' => get_the_ID()
     ));
 }

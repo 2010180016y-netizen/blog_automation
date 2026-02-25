@@ -1,0 +1,9 @@
+version: "2026.02.v1"
+compliance:
+  categories: ["뷰티", "리빙", "식품", "건기식"]
+  banned_claims:
+    ko: ["무조건", "완치", "보장", "부작용 없음", "100%"]
+    en: ["guaranteed", "cure", "no side effects", "100%"]
+  required_disclosures:
+    ko: ["광고", "협찬", "제휴"]
+    en: ["sponsored", "affiliate"]

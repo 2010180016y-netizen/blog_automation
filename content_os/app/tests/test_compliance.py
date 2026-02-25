@@ -1,4 +1,6 @@
 import unittest
+import tempfile
+from pathlib import Path
 from app.eval.compliance import ComplianceEvaluator
 from app.schemas import ComplianceRequest
 
@@ -36,6 +38,27 @@ class TestCompliance(unittest.TestCase):
         req = ComplianceRequest(content="건강 정보입니다.", language="ko", category="건강")
         res = self.evaluator.evaluate(req)
         self.assertEqual(res.status, "WARN")
+
+    def test_ruleset_path_override(self):
+        custom_yaml = """
+version: "test.v1"
+compliance:
+  categories: ["테스트"]
+  banned_claims:
+    ko: ["절대금지단어"]
+    en: ["forbiddenword"]
+  required_disclosures:
+    ko: ["광고"]
+    en: ["sponsored"]
+"""
+        with tempfile.TemporaryDirectory() as td:
+            rules_path = Path(td) / "rules.yaml"
+            rules_path.write_text(custom_yaml, encoding="utf-8")
+            evaluator = ComplianceEvaluator(ruleset_path=str(rules_path))
+            req = ComplianceRequest(content="절대금지단어 포함", language="ko")
+            res = evaluator.evaluate(req)
+            self.assertEqual(res.status, "REJECT")
+            self.assertTrue(any("RULESET_VERSION=test.v1" == s for s in res.suggestions))
 
 if __name__ == "__main__":
     unittest.main()

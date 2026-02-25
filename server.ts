@@ -3,8 +3,27 @@ import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import { GoogleGenAI } from "@google/genai";
 import fetch from "node-fetch";
+import fs from "node:fs";
 
 const db = new Database("blogs.db");
+
+function logPublishEvidence(entry: Record<string, any>) {
+  const logPath = process.env.PUBLISH_E2E_LOG_PATH;
+  if (!logPath) return;
+
+  const payload = {
+    timestamp: new Date().toISOString(),
+    mode: process.env.PUBLISH_E2E_MODE || "unspecified",
+    ...entry,
+  };
+
+  try {
+    fs.appendFileSync(logPath, JSON.stringify(payload) + "\n", "utf-8");
+  } catch (error: any) {
+    console.error("Failed to write publish evidence log:", error.message);
+  }
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS blogs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -805,48 +824,115 @@ async function startServer() {
 
   app.post("/api/blogs/publish", async (req, res) => {
     const { id, wpUrl, wpUser, wpPass, status = "future" } = req.body;
-    
-    const blog = db.prepare("SELECT * FROM blogs WHERE id = ?").get() as any;
+    const allowedStatuses = new Set(["draft", "publish", "future"]);
+
+    if (!id || !wpUrl || !wpUser || !wpPass) {
+      return res.status(400).json({ error: "id, wpUrl, wpUser, wpPass are required" });
+    }
+
+    if (!allowedStatuses.has(status)) {
+      return res.status(400).json({ error: "Invalid status. Allowed: draft, publish, future" });
+    }
+
+    let parsedWpUrl: URL;
+    try {
+      parsedWpUrl = new URL(wpUrl);
+    } catch {
+      return res.status(400).json({ error: "Invalid wpUrl" });
+    }
+
+    const allowedHosts = (process.env.WP_ALLOWED_HOSTS || "")
+      .split(",")
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (allowedHosts.length > 0 && !allowedHosts.includes(parsedWpUrl.hostname.toLowerCase())) {
+      return res.status(403).json({ error: "wpUrl host is not in WP_ALLOWED_HOSTS" });
+    }
+
+    const blog = db.prepare("SELECT * FROM blogs WHERE id = ?").get(id) as any;
     if (!blog) return res.status(404).json({ error: "Blog not found" });
 
-    try {
-      // Basic Auth Token
-      const token = Buffer.from(`${wpUser}:${wpPass}`).toString('base64');
-      
-      // Random delay for "future" status (1-3 hours)
-      const publishDate = new Date();
-      if (status === "future") {
-        const hoursDelay = Math.floor(Math.random() * 3) + 1;
-        publishDate.setHours(publishDate.getHours() + hoursDelay);
-      }
+    const token = Buffer.from(`${wpUser}:${wpPass}`).toString("base64");
 
-      const response = await fetch(`${wpUrl}/wp-json/wp/v2/posts`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title: blog.topic,
-          content: blog.content,
-          status: status, // 'draft', 'publish', or 'future'
-          date: status === "future" ? publishDate.toISOString() : undefined,
-          format: 'standard'
-        })
-      });
+    const publishDate = new Date();
+    if (status === "future") {
+      const hoursDelay = Math.floor(Math.random() * 3) + 1;
+      publishDate.setHours(publishDate.getHours() + hoursDelay);
+    }
+
+    const requestPayload = {
+      title: blog.topic,
+      content: blog.content,
+      status: status,
+      date: status === "future" ? publishDate.toISOString() : undefined,
+      format: "standard"
+    };
+
+    const endpoint = `${parsedWpUrl.origin}/wp-json/wp/v2/posts`;
+
+    try {
+      let response: any;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        try {
+          response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal
+          });
+
+          if (response.status < 500 || attempt === 2) {
+            break;
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
 
       const data = await response.json() as any;
 
       if (response.status === 201) {
         db.prepare("UPDATE blogs SET status = 'published' WHERE id = ?").run(id);
-        res.json({ success: true, link: data.link });
-      } else {
-        console.error("WP Error:", data);
-        res.status(response.status).json({ error: data.message || "WordPress publishing failed" });
+        logPublishEvidence({
+          endpoint,
+          blog_id: id,
+          requested_status: status,
+          response_status: response.status,
+          success: true,
+          link: data.link || null,
+        });
+        return res.json({ success: true, link: data.link });
       }
+
+      logPublishEvidence({
+        endpoint,
+        blog_id: id,
+        requested_status: status,
+        response_status: response.status,
+        success: false,
+        error: data.message || "WordPress publishing failed",
+      });
+      console.error("WP Error:", data);
+      return res.status(response.status).json({ error: data.message || "WordPress publishing failed" });
     } catch (error: any) {
-      console.error("Publish error:", error);
-      res.status(500).json({ error: error.message });
+      const message = error?.name === "AbortError" ? "WordPress request timed out" : error.message;
+      logPublishEvidence({
+        endpoint,
+        blog_id: id,
+        requested_status: status,
+        response_status: 500,
+        success: false,
+        error: message,
+      });
+      console.error("Publish error:", message);
+      return res.status(500).json({ error: message });
     }
   });
 
@@ -914,12 +1000,17 @@ async function startServer() {
 
   app.post("/api/keywords/plan", async (req, res) => {
     const { id } = req.body;
-    const keywordRow = db.prepare("SELECT * FROM keywords WHERE id = ?").get() as any;
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: "GEMINI_API_KEY is not set" });
+    }
+
+    const keywordRow = db.prepare("SELECT * FROM keywords WHERE id = ?").get(id) as any;
     
     if (!keywordRow) return res.status(404).json({ error: "Keyword not found" });
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const model = "gemini-3.1-pro-preview";
 
       const prompt = `
