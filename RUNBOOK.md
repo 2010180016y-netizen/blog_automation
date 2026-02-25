@@ -98,3 +98,20 @@ python content_os/scripts/manage_indexing_feeds.py \
 
 - 출력: sitemap.xml/rss.xml 생성 + 상태 모니터링 PASS/WARN/FAIL JSON
 - `google-status-json`/`naver-status-json`가 없으면 `UNVERIFIED`로 표기됩니다.
+
+
+## 8) Search Console + Naver operations dashboard/alerts
+```bash
+python content_os/scripts/generate_ops_dashboard.py \
+  --query-json ./ops/query_rows.json \
+  --page-json ./ops/page_rows.json \
+  --conversion-json ./ops/conversions.json \
+  --current-index-json ./ops/current_index_status.json \
+  --previous-index-json ./ops/previous_index_status.json
+```
+
+Report contains:
+- low-CTR keyword detection + title/meta A/B candidates
+- indexing error increase alerts
+- high-rank / low-conversion page flags
+- refresh priority list

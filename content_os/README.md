@@ -68,3 +68,17 @@ python scripts/manage_indexing_feeds.py \
 ```
 
 This generates `sitemap.xml` and `rss.xml`, then evaluates Google/Naver submission status files and robots directives into a single JSON report.
+
+
+## Search Console + Naver operations dashboard
+
+```bash
+python scripts/generate_ops_dashboard.py \
+  --query-json ./ops/query_rows.json \
+  --page-json ./ops/page_rows.json \
+  --conversion-json ./ops/conversions.json \
+  --current-index-json ./ops/current_index_status.json \
+  --previous-index-json ./ops/previous_index_status.json
+```
+
+The script outputs a JSON operations report for CTR issues, indexing error deltas, conversion leak flags, and refresh priorities.
