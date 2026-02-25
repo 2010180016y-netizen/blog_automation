@@ -53,3 +53,18 @@ python -m pip install --no-index --find-links=./wheelhouse -r requirements-lock.
 cd content_os
 python -m pytest -q
 ```
+
+
+## Sitemap/RSS generation + indexing status monitoring
+
+```bash
+python scripts/manage_indexing_feeds.py \
+  --site-url https://example.com \
+  --db-path ../blogs.db \
+  --out-dir ./out/feeds \
+  --google-status-json ./ops/google_sitemap_status.json \
+  --naver-status-json ./ops/naver_sitemap_status.json \
+  --robots-txt ./ops/robots.txt
+```
+
+This generates `sitemap.xml` and `rss.xml`, then evaluates Google/Naver submission status files and robots directives into a single JSON report.

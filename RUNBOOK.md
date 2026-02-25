@@ -82,3 +82,19 @@ Local parity command:
 ```bash
 npm run lint && python -m pytest -q
 ```
+
+
+## 7) Sitemap + RSS generation and indexing monitoring (Google/Naver)
+```bash
+python content_os/scripts/manage_indexing_feeds.py \
+  --site-url https://example.com \
+  --db-path ./blogs.db \
+  --out-dir ./content_os/out/feeds \
+  --google-status-json ./ops/google_sitemap_status.json \
+  --naver-status-json ./ops/naver_sitemap_status.json \
+  --robots-txt ./ops/robots.txt \
+  --webhook-url https://hooks.slack.com/services/xxx/yyy/zzz
+```
+
+- 출력: sitemap.xml/rss.xml 생성 + 상태 모니터링 PASS/WARN/FAIL JSON
+- `google-status-json`/`naver-status-json`가 없으면 `UNVERIFIED`로 표기됩니다.
