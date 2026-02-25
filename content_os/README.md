@@ -168,3 +168,26 @@ Behavior:
 - keyword-stuffing detection on alt text (spam guardrail)
 
 For HTML rendering, apply lazy-loading attrs (`loading=lazy`, `decoding=async`) via `app.pipeline.image_seo.apply_lazy_loading_to_html(...)`.
+
+
+## Internal link validator (orphan detection + crawler simulation)
+
+Build recommendations and validation outputs:
+
+```bash
+python scripts/build_internal_links.py
+```
+
+Or validate your own post graph:
+
+```bash
+python scripts/validate_internal_links.py \
+  --posts-json ./ops/posts.json \
+  --start-slug home \
+  --max-depth 3
+```
+
+Validation report includes:
+- orphan pages (inbound link 0)
+- crawler-reachable pages from seed URLs
+- anchor quality issues (too-short anchor text)

@@ -197,3 +197,24 @@ python content_os/scripts/apply_disclosures.py \
 - alt 키워드 스터핑 감지(스팸 방지)
 
 HTML 본문 `<img>`에는 `loading="lazy"`, `decoding="async"`를 적용해 렌더링 비용을 줄입니다(`app.pipeline.image_seo.apply_lazy_loading_to_html`).
+
+
+## 14) 내부링크 검증기 (오펀 페이지 + 크롤러 시뮬레이션)
+
+권장 링크 생성 + 검증 리포트 생성:
+```bash
+python content_os/scripts/build_internal_links.py
+```
+
+실데이터 검증:
+```bash
+python content_os/scripts/validate_internal_links.py \
+  --posts-json ./ops/posts.json \
+  --start-slug home \
+  --max-depth 3
+```
+
+리포트 핵심:
+- 오펀 페이지(`orphans`)
+- 시작 URL 기준 크롤 도달 페이지(`crawl.visited`)
+- 앵커 텍스트 품질 이슈(`anchor_issues`)
