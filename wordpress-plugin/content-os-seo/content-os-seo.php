@@ -18,6 +18,7 @@ require_once COS_SEO_PATH . 'includes/helpers.php';
 require_once COS_SEO_PATH . 'includes/meta.php';
 require_once COS_SEO_PATH . 'includes/canonical.php';
 require_once COS_SEO_PATH . 'includes/og.php';
+require_once COS_SEO_PATH . 'includes/indexing.php';
 
 /**
  * Main SEO Hook

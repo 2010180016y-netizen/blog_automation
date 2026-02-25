@@ -19,3 +19,10 @@ This plugin provides essential SEO meta tags (Canonical, Open Graph, Twitter Car
 - `cos_seo_meta_description`: Filter the meta description.
 - `cos_seo_canonical_url`: Filter the canonical URL.
 - `cos_seo_og_image`: Filter the OG image URL.
+
+
+== Indexing Governance ==
+- `_cos_qa_pass` = `1`: marks content index-eligible.
+- `_cos_noindex` = `1`: force noindex even if published.
+- `_cos_duplicate_of`: canonical target post ID or URL for duplicate/similar pages.
+- Non-eligible posts are rendered with `noindex,follow` and excluded from WP sitemap entries.
