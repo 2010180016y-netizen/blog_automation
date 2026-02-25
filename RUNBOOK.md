@@ -115,3 +115,18 @@ Report contains:
 - indexing error increase alerts
 - high-rank / low-conversion page flags
 - refresh priority list
+
+
+## 9) Product feed + Merchant Center asset generation
+```bash
+python content_os/scripts/generate_merchant_assets.py \
+  --db-path ./blogs.db \
+  --site-url https://example.com \
+  --out-dir ./content_os/out/merchant \
+  --snapshot-path ./content_os/out/merchant/product_snapshot.json
+```
+
+Outputs:
+- `merchant_feed.xml` (Merchant Center feed)
+- `jsonld/*.json` (Product/merchant listing JSON-LD)
+- `changes` report (`new/changed/removed`) for scheduler-triggered refresh

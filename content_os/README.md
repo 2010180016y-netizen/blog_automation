@@ -82,3 +82,19 @@ python scripts/generate_ops_dashboard.py \
 ```
 
 The script outputs a JSON operations report for CTR issues, indexing error deltas, conversion leak flags, and refresh priorities.
+
+
+## Product feed + Merchant Center integration
+
+```bash
+python scripts/generate_merchant_assets.py \
+  --db-path ../blogs.db \
+  --site-url https://example.com \
+  --out-dir ./out/merchant \
+  --snapshot-path ./out/merchant/product_snapshot.json
+```
+
+This command generates:
+- Merchant Center feed (`merchant_feed.xml`)
+- Product/merchant listing JSON-LD files (`jsonld/<SKU>.json`)
+- Change detection report for price/inventory/shipping/link deltas (`new/changed/removed`)
