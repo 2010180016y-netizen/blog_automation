@@ -30,6 +30,7 @@ class TestUniquePack(unittest.TestCase):
         res = self.generator.process("SKU001", "POST001")
         self.assertEqual(res["status"], "PASS")
         self.assertTrue(os.path.exists("./test_out/packages/POST001/unique_facts.json"))
+        self.assertTrue(os.path.exists("./test_out/packages/POST001/image_optimization_report.json"))
 
     def test_reject_insufficient_images(self):
         os.makedirs("./test_assets/images/SKU002", exist_ok=True)

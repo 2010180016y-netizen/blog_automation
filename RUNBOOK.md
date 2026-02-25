@@ -186,3 +186,14 @@ python content_os/scripts/apply_disclosures.py \
 - 룰셋(`content_os/app/rules/compliance_rules.v1.yaml`) 기반 제목/본문 상단 표기 자동 삽입
 - 제휴 링크 주변에 눈에 띄는 Disclosure 문구 자동 삽입
 - QA/컴플라이언스에서 표기 누락 시 `REJECT`
+
+
+## 13) 이미지 SEO 자동 최적화 (alt/용량/포맷)
+
+`UniquePackGenerator` 처리 시 자동으로:
+- 리사이즈 + WebP 변환(가능 환경)
+- 이미지 최적화 리포트 저장 (`image_optimization_report.json`)
+- 설명 중심 alt 텍스트 생성
+- alt 키워드 스터핑 감지(스팸 방지)
+
+HTML 본문 `<img>`에는 `loading="lazy"`, `decoding="async"`를 적용해 렌더링 비용을 줄입니다(`app.pipeline.image_seo.apply_lazy_loading_to_html`).

@@ -157,3 +157,14 @@ Behavior:
 - Inject title/body disclosure templates from `app/rules/compliance_rules.v1.yaml`
 - Add clear disclosure text near affiliate links
 - Compliance QA rejects missing intro disclosure or missing nearby affiliate-link disclosure
+
+
+## Image SEO auto-optimization (alt/capacity/format)
+
+`UniquePackGenerator` now performs image SEO preprocessing:
+- image resize + WebP conversion (Pillow available 환경) with fallback copy mode
+- optimization report output (`image_optimization_report.json`)
+- descriptive alt-text generation (description-first)
+- keyword-stuffing detection on alt text (spam guardrail)
+
+For HTML rendering, apply lazy-loading attrs (`loading=lazy`, `decoding=async`) via `app.pipeline.image_seo.apply_lazy_loading_to_html(...)`.
