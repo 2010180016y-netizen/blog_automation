@@ -130,3 +130,30 @@ Outputs:
 - `merchant_feed.xml` (Merchant Center feed)
 - `jsonld/*.json` (Product/merchant listing JSON-LD)
 - `changes` report (`new/changed/removed`) for scheduler-triggered refresh
+
+
+## 10) Ads infra operations (`ads.txt` + UX policy guardrails)
+
+### Generate + validate + deploy-ready ads.txt
+```bash
+python content_os/scripts/manage_ads_txt.py \
+  --records-json ./ops/ads_sellers.json \
+  --output-path ./content_os/out/ads/ads.txt \
+  --expected-domain google.com
+```
+
+(옵션) 라이브 사이트 점검
+```bash
+python content_os/scripts/manage_ads_txt.py \
+  --records-json ./ops/ads_sellers.json \
+  --output-path ./content_os/out/ads/ads.txt \
+  --validate-url https://example.com/ads.txt
+```
+
+### 광고 UX 정책 점검
+- `AdsLinter`는 버튼/입력/드롭다운/플레이어 등 클릭 요소 근접 배치를 차단
+- ad 컨테이너 내부에 상호작용 요소가 있으면 우발 클릭 위험으로 거부
+
+### RPM/RPS 기반 실험 규칙
+- `recommend_ad_experiment(rpm, rps, ads_per_page, bounce_rate)`로 `INCREASE_STEP/HOLD/DECREASE` 권고
+- bounce rate가 높거나 ad density cap 도달 시 증량 금지

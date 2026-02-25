@@ -98,3 +98,43 @@ This command generates:
 - Merchant Center feed (`merchant_feed.xml`)
 - Product/merchant listing JSON-LD files (`jsonld/<SKU>.json`)
 - Change detection report for price/inventory/shipping/link deltas (`new/changed/removed`)
+
+
+## Ads infra: ads.txt + accidental-click prevention
+
+### 1) Generate/validate/deploy `ads.txt`
+
+Prepare seller records JSON:
+
+```json
+[
+  {"domain":"google.com","publisher_id":"pub-xxxxxxxx","relationship":"DIRECT","cert_authority_id":"f08c47fec0942fa0"},
+  {"domain":"example-ssp.com","publisher_id":"account-123","relationship":"RESELLER"}
+]
+```
+
+Then run:
+
+```bash
+python scripts/manage_ads_txt.py \
+  --records-json ./ops/ads_sellers.json \
+  --output-path ./out/ads/ads.txt \
+  --expected-domain google.com
+```
+
+Optional production verification:
+
+```bash
+python scripts/manage_ads_txt.py \
+  --records-json ./ops/ads_sellers.json \
+  --output-path ./out/ads/ads.txt \
+  --validate-url https://example.com/ads.txt
+```
+
+### 2) Ads UX linter hardening
+
+`app.ads.linter.AdsLinter` now rejects ad units that are too close to CTA/input/select/player controls and flags interactive controls inside ad containers.
+
+### 3) RPM/RPS guardrail experiment
+
+Use `app.ads.experiment.recommend_ad_experiment(...)` to keep monetization tests incremental (`INCREASE_STEP`/`HOLD`/`DECREASE`) based on RPM, RPS, ad density, and bounce-rate guardrails.

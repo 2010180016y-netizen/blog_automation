@@ -1,5 +1,7 @@
 import unittest
+
 from app.ads.linter import AdsLinter
+
 
 class TestAdsLinter(unittest.TestCase):
     def setUp(self):
@@ -7,7 +9,7 @@ class TestAdsLinter(unittest.TestCase):
             "ads_ux": {
                 "rules": {
                     "min_distance_from_cta_px": 120,
-                    "forbid_near_elements": ["button", "input"]
+                    "forbid_near_elements": ["button", "input", "select", "video"],
                 }
             }
         }
@@ -20,25 +22,35 @@ class TestAdsLinter(unittest.TestCase):
             <p>Some content here...</p>
             <div class="ad-unit">Ad Content</div>
             <p>More content...</p>
+            <p>Even more content...</p>
             <button class="cta-button">Buy Now</button>
         </div>
         """
-        # In this case, there's a <p> between ad and button, so it might pass our simple sibling check
         report = self.linter.lint(html)
         self.assertEqual(report["status"], "PASS")
 
-    def test_violation_html(self):
+    def test_violation_near_cta(self):
         html = """
         <div>
             <div class="ad-unit">Ad Content</div>
             <button>Click Me</button>
         </div>
         """
-        # Ad and button are immediate siblings
         report = self.linter.lint(html)
         self.assertEqual(report["status"], "FAIL")
         self.assertTrue(len(report["violations"]) > 0)
-        self.assertIn("immediately adjacent", report["violations"][0]["message"])
+        self.assertIn("too close", report["violations"][0]["message"])
+
+    def test_violation_inside_interactive_container(self):
+        html = """
+        <div>
+            <div class="ad-unit"><button>play</button></div>
+        </div>
+        """
+        report = self.linter.lint(html)
+        self.assertEqual(report["status"], "FAIL")
+        self.assertIn("contains an interactive control", report["violations"][0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()
