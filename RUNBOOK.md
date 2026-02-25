@@ -169,3 +169,20 @@ WordPress `content-os-seo` plugin now includes a minimal CMP + Google Consent Mo
 Optional customization via WP filters:
 - `cos_seo_consent_enabled`
 - `cos_seo_consent_regions`
+
+
+## 12) 추천/후기/제휴 표기 자동화 (KO/EN)
+
+```bash
+python content_os/scripts/apply_disclosures.py \
+  --title "Best Air Purifier Review" \
+  --content-file ./ops/draft.txt \
+  --language en \
+  --disclosure-required \
+  --output-file ./ops/draft_with_disclosure.txt
+```
+
+동작:
+- 룰셋(`content_os/app/rules/compliance_rules.v1.yaml`) 기반 제목/본문 상단 표기 자동 삽입
+- 제휴 링크 주변에 눈에 띄는 Disclosure 문구 자동 삽입
+- QA/컴플라이언스에서 표기 누락 시 `REJECT`

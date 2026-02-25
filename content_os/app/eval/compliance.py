@@ -6,6 +6,7 @@ import yaml
 
 from ..schemas import ComplianceRequest, ComplianceResult
 from ..rules.catalog import RuleCatalog
+from .disclosure import apply_disclosure_templates, annotate_affiliate_links
 
 
 DEFAULT_RULESET_PATH = Path(__file__).resolve().parent.parent / "rules" / "compliance_rules.v1.yaml"
@@ -32,10 +33,36 @@ class ComplianceEvaluator:
 
         self.catalog = RuleCatalog(self.config)
 
+    def apply_disclosures(self, title: str, content: str, language: str, disclosure_required: bool) -> Dict[str, str]:
+        templates = self.config.get("compliance", {}).get("disclosure_templates", {})
+        link_templates = self.config.get("compliance", {}).get("affiliate_link_disclosures", {})
+
+        next_title, next_content, applied = apply_disclosure_templates(
+            title=title,
+            content=content,
+            language=language,
+            disclosure_required=disclosure_required,
+            templates=templates,
+        )
+
+        link_template = link_templates.get(language, "")
+        affiliate_domains = self.config.get("compliance", {}).get("affiliate_domains", [])
+        if disclosure_required and link_template:
+            next_content = annotate_affiliate_links(next_content, language, link_template, affiliate_domains)
+            applied.append("affiliate_link_template")
+
+        return {
+            "title": next_title,
+            "content": next_content,
+            "applied": ",".join(sorted(set(applied))),
+            "ruleset_version": self.ruleset_version,
+        }
+
     def evaluate(self, request: ComplianceRequest) -> ComplianceResult:
         rules = self.catalog.get_rules(request.language)
         context = {
             "is_sponsored": request.is_sponsored,
+            "disclosure_required": request.disclosure_required,
             "category": request.category,
         }
 

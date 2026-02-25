@@ -138,3 +138,22 @@ python scripts/manage_ads_txt.py \
 ### 3) RPM/RPS guardrail experiment
 
 Use `app.ads.experiment.recommend_ad_experiment(...)` to keep monetization tests incremental (`INCREASE_STEP`/`HOLD`/`DECREASE`) based on RPM, RPS, ad density, and bounce-rate guardrails.
+
+
+## Disclosure automation (KO/EN sponsorship & affiliate)
+
+Use ruleset-driven disclosure insertion when `disclosure_required=true`:
+
+```bash
+python scripts/apply_disclosures.py \
+  --title "Best Air Purifier Review" \
+  --content-file ./ops/draft.txt \
+  --language en \
+  --disclosure-required \
+  --output-file ./ops/draft_with_disclosure.txt
+```
+
+Behavior:
+- Inject title/body disclosure templates from `app/rules/compliance_rules.v1.yaml`
+- Add clear disclosure text near affiliate links
+- Compliance QA rejects missing intro disclosure or missing nearby affiliate-link disclosure
