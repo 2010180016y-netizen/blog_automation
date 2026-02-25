@@ -218,3 +218,18 @@ python content_os/scripts/validate_internal_links.py \
 - 오펀 페이지(`orphans`)
 - 시작 URL 기준 크롤 도달 페이지(`crawl.visited`)
 - 앵커 텍스트 품질 이슈(`anchor_issues`)
+
+
+## 15) Core Web Vitals 모니터링 + 자동 경보
+
+```bash
+python content_os/scripts/monitor_cwv.py \
+  --current-json ./ops/cwv_current.json \
+  --previous-json ./ops/cwv_previous.json \
+  --webhook-url https://hooks.slack.com/services/xxx/yyy/zzz
+```
+
+기능:
+- 페이지 유형별 성능 예산(landing/review/comparison) 평가
+- 성능 악화(regression) 자동 탐지
+- 원인 분해(이미지/광고 스크립트/플러그인) 기반 경보 payload 생성

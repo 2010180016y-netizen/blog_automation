@@ -191,3 +191,20 @@ Validation report includes:
 - orphan pages (inbound link 0)
 - crawler-reachable pages from seed URLs
 - anchor quality issues (too-short anchor text)
+
+
+## Core Web Vitals monitoring + alerts
+
+Run CWV budget checks by page type (landing/review/comparison) and regression alerts:
+
+```bash
+python scripts/monitor_cwv.py \
+  --current-json ./ops/cwv_current.json \
+  --previous-json ./ops/cwv_previous.json \
+  --webhook-url https://hooks.slack.com/services/xxx/yyy/zzz
+```
+
+Supports:
+- per-page-type performance budget (`lcp`, `inp`, `cls`, `ttfb`)
+- regression detection vs previous snapshot
+- probable cause breakdown (`image`, `ad_script`, `plugin`) for alert triage
