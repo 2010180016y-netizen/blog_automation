@@ -245,3 +245,21 @@ python scripts/sync_partner_products.py \
 ```
 
 The sync enforces source validation (commercial use of `shopping_search_api`/`naver_shopping_openapi` is rejected) and exports merged rows (`own_store` + `partner_store`).
+
+
+## Unified products table (2-source merge with source_type)
+
+Merge two sources into a single `products` SSOT table with typed provenance:
+- `source_type=MY_STORE` (Commerce API sync)
+- `source_type=AFFILIATE_SHOPPING_CONNECT` (Shopping Connect link SSOT)
+- optional: `source_type=MY_BRANDSTORE_ANALYTICS`
+
+```bash
+python scripts/sync_unified_products.py \
+  --db-path ../blogs.db \
+  --refresh-queue-path ./out/refresh_queue.json
+```
+
+Rules implemented:
+- `MY_STORE`: price/shipping/link change detection -> refresh queue (`refresh_queue.json`)
+- `AFFILIATE_SHOPPING_CONNECT`: link is SSOT, price left nullable, default disclaimer inserted ("가격/혜택은 변동될 수 있습니다...")

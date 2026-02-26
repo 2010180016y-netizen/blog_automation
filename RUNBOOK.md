@@ -278,3 +278,23 @@ python content_os/scripts/sync_partner_products.py \
 결과:
 - 정책 검증 통과 데이터만 `partner_products` upsert
 - `own_store + partner_store` 통합 SSOT json 생성
+
+
+## 18) 두 데이터 소스 통합(products + source_type)
+
+단일 상품 테이블 `products`로 통합:
+- `MY_STORE` (커머스API 동기화)
+- `AFFILIATE_SHOPPING_CONNECT` (쇼핑 커넥트 링크 기반)
+- (옵션) `MY_BRANDSTORE_ANALYTICS`
+
+실행:
+```bash
+python content_os/scripts/sync_unified_products.py \
+  --db-path ./blogs.db \
+  --refresh-queue-path ./content_os/out/refresh_queue.json
+```
+
+운영 규칙:
+- `MY_STORE`: 가격/옵션/배송/링크 변경 감지 시 리프레시 큐 자동 생성
+- `AFFILIATE_SHOPPING_CONNECT`: 링크를 SSOT로 사용, 가격은 nullable 유지 +
+  "가격/혜택은 변동될 수 있음(작성일 기준)" 고지 자동 삽입
