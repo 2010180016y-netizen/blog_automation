@@ -72,13 +72,16 @@ def _load_my_store_rows(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
 
 def _load_affiliate_rows(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        """
-        SELECT partner_product_id, title, affiliate_link, commission_note, updated_at
-        FROM partner_products
-        WHERE source = 'shopping_connect'
-        """
-    ).fetchall()
+    try:
+        rows = conn.execute(
+            """
+            SELECT partner_product_id, title, affiliate_link, commission_note, updated_at
+            FROM partner_products
+            WHERE source = 'shopping_connect'
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
     result: List[Dict[str, Any]] = []
     for r in rows:
         result.append(

@@ -292,3 +292,18 @@ When brandstore bizdata stats are available:
 ```bash
 python scripts/summarize_brandstore_stats.py --stats-json ./ops/brandstore_stats.json
 ```
+
+
+## Prompt-implementation modules (MY_STORE + AFFILIATE_SC)
+
+- MY_STORE robust sync modules:
+  - `app/ingest/naver_commerce/client.py` (OAuth2 + retry/rate-limit/token-refresh)
+  - `app/ingest/naver_commerce/products.py` (list->detail enrichment, graceful parse fail)
+  - `app/ingest/naver_commerce/sync.py` (DB upsert + refresh queue)
+  - `scripts/sync_my_store.py`
+
+- AFFILIATE_SC modules:
+  - `app/ingest/affiliate_sc/importer.py` (CSV import + queue candidates)
+  - `app/content/naver/{templates.py,generator.py}` (html+image slot+CTA+disclosure+FAQ)
+  - `app/qa/compliance.py` (disclosure required => REJECT)
+  - `scripts/import_affiliate_links.py`

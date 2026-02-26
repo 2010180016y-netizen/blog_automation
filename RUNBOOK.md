@@ -326,3 +326,23 @@ python content_os/scripts/sync_partner_products.py \
 python content_os/scripts/summarize_brandstore_stats.py \
   --stats-json ./ops/brandstore_stats.json
 ```
+
+
+## 20) Prompt implementation quick-run
+
+### MY_STORE robust sync
+```bash
+python content_os/scripts/sync_my_store.py \
+  --base-url https://api.commerce.naver.com \
+  --client-id <id> \
+  --client-secret <secret> \
+  --db-path ./blogs.db
+```
+
+### AFFILIATE_SC import + Naver package generation
+```bash
+python content_os/scripts/import_affiliate_links.py \
+  --db-path ./blogs.db \
+  --csv-path ./ops/shopping_connect_links.csv \
+  --out-dir ./content_os/out/affiliate_packages
+```

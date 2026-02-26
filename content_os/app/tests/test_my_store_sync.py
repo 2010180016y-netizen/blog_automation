@@ -1,0 +1,142 @@
+import sqlite3
+import tempfile
+import unittest
+from pathlib import Path
+
+import httpx
+
+from app.ingest.naver_commerce.client import NaverCommerceClient
+from app.ingest.naver_commerce.products import fetch_enriched_products
+from app.ingest.naver_commerce.sync import sync_my_store_products
+from app.storage.repo import ProductRepo
+
+
+class FakeRequester:
+    def __init__(self):
+        self.calls = []
+        self.fail_429_once = False
+        self.fail_401_once = False
+
+    def __call__(self, method, url, headers=None, json=None):
+        self.calls.append((method, url, headers or {}, json or {}))
+
+        req = httpx.Request(method, url)
+        if url.endswith('/v1/oauth2/token'):
+            return httpx.Response(200, json={"access_token": "tok", "expires_in": 10800}, request=req)
+
+        if self.fail_401_once:
+            self.fail_401_once = False
+            return httpx.Response(401, json={"error": "expired"}, request=req)
+
+        if self.fail_429_once:
+            self.fail_429_once = False
+            return httpx.Response(429, headers={"Retry-After": "0"}, json={"error": "rate"}, request=req)
+
+        if url.endswith('/v1/products/search'):
+            return httpx.Response(
+                200,
+                json={"contents": [{"channelProductNo": "1001", "originProductNo": "9001", "name": "s1"}]},
+                request=req,
+            )
+        if '/v2/products/channel-products/1001' in url:
+            return httpx.Response(200, json={"name": "상품A", "salePrice": 19900, "productUrl": "https://smart/p/1001"}, request=req)
+        if '/v2/products/origin-products/9001' in url:
+            return httpx.Response(200, json={"name": "원상품A"}, request=req)
+
+        return httpx.Response(404, json={"error": "notfound"}, request=req)
+
+
+class TestMyStoreSync(unittest.TestCase):
+    def test_issue_token(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        token = c.issue_token()
+        self.assertEqual(token.access_token, "tok")
+
+    def test_get_access_token_cached(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        t1 = c.get_access_token()
+        t2 = c.get_access_token()
+        self.assertEqual(t1, t2)
+        self.assertEqual(len([x for x in r.calls if x[1].endswith('/v1/oauth2/token')]), 1)
+
+    def test_search_products(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        data = c.search_products()
+        self.assertTrue(data.get("contents"))
+
+    def test_channel_detail(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        data = c.get_channel_product("1001")
+        self.assertEqual(data["name"], "상품A")
+
+    def test_origin_detail(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        data = c.get_origin_product("9001")
+        self.assertEqual(data["name"], "원상품A")
+
+    def test_retry_429(self):
+        r = FakeRequester()
+        r.fail_429_once = True
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        data = c.search_products()
+        self.assertTrue(data.get("contents"))
+
+    def test_retry_401_refresh_token(self):
+        r = FakeRequester()
+        r.fail_401_once = True
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        data = c.search_products()
+        self.assertTrue(data.get("contents"))
+
+    def test_fetch_enriched_products(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        rows = fetch_enriched_products(c)
+        self.assertEqual(rows[0]["sku"], "1001")
+        self.assertEqual(rows[0]["price"], 19900)
+
+    def test_fetch_enriched_products_graceful_detail_fail(self):
+        class FR(FakeRequester):
+            def __call__(self, method, url, headers=None, json=None):
+                if '/v2/products/channel-products/1001' in url:
+                    req = httpx.Request(method, url)
+                    return httpx.Response(500, json={"error": "boom"}, request=req)
+                return super().__call__(method, url, headers, json)
+
+        r = FR()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        rows = fetch_enriched_products(c)
+        self.assertEqual(rows[0]["sku"], "1001")
+
+    def test_sync_to_db_and_refresh_queue(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        with tempfile.TemporaryDirectory() as td:
+            db = str(Path(td) / "blogs.db")
+            repo = ProductRepo(db)
+            result = sync_my_store_products(c, repo)
+            self.assertEqual(result["fetched"], 1)
+            with sqlite3.connect(db) as conn:
+                cnt = conn.execute("SELECT COUNT(*) FROM products_ssot").fetchone()[0]
+                self.assertEqual(cnt, 1)
+
+    def test_sync_refresh_detects_change(self):
+        r = FakeRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        with tempfile.TemporaryDirectory() as td:
+            db = str(Path(td) / "blogs.db")
+            repo = ProductRepo(db)
+            sync_my_store_products(c, repo)
+            with sqlite3.connect(db) as conn:
+                conn.execute("UPDATE products SET price=10000 WHERE sku='1001'")
+            res = sync_my_store_products(c, repo)
+            self.assertIn("1001", res["refresh_queue"].get("skus", []))
+
+
+if __name__ == "__main__":
+    unittest.main()
