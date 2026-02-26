@@ -136,6 +136,9 @@ class TestMyStoreSync(unittest.TestCase):
                 conn.execute("UPDATE products SET price=10000 WHERE sku='1001'")
             res = sync_my_store_products(c, repo)
             self.assertIn("1001", res["refresh_queue"].get("skus", []))
+            self.assertGreaterEqual(res["refresh_queue"].get("enqueued", 0), 1)
+            queued = repo.get_refresh_queue_skus()
+            self.assertIn("1001", queued)
 
 
 if __name__ == "__main__":

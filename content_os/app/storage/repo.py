@@ -7,6 +7,22 @@ from ..store.unified_products import sync_unified_products
 from .models import ContentEntry
 
 
+def ensure_refresh_queue_table(db_path: str):
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS refresh_queue (
+                sku TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'PENDING',
+                reason TEXT NOT NULL DEFAULT 'PRODUCT_CHANGED',
+                payload TEXT,
+                enqueued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+
 class ContentRepo:
     def __init__(self, db_path: str = "blogs.db"):
         self.db_path = db_path
@@ -63,6 +79,7 @@ class ProductRepo:
     def __init__(self, db_path: str = "blogs.db"):
         self.db_path = db_path
         ensure_ssot_table(self.db_path)
+        ensure_refresh_queue_table(self.db_path)
 
     def upsert_products_ssot(self, rows: List[Dict]) -> Dict[str, int]:
         return upsert_ssot_rows(self.db_path, rows)
@@ -70,6 +87,36 @@ class ProductRepo:
     def sync_unified_products_with_refresh(self) -> Dict:
         return sync_unified_products(self.db_path)
 
+    def enqueue_refresh_candidates(self, skus: List[str], reason: str = "PRODUCT_CHANGED") -> Dict[str, int]:
+        if not skus:
+            return {"enqueued": 0}
+
+        unique_skus = sorted(set(skus))
+        with sqlite3.connect(self.db_path) as conn:
+            for sku in unique_skus:
+                conn.execute(
+                    """
+                    INSERT INTO refresh_queue (sku, status, reason, payload, enqueued_at, updated_at)
+                    VALUES (?, 'PENDING', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT(sku) DO UPDATE SET
+                        status='PENDING',
+                        reason=excluded.reason,
+                        payload=excluded.payload,
+                        updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (sku, reason, json.dumps({"sku": sku, "reason": reason}, ensure_ascii=False)),
+                )
+
+        return {"enqueued": len(unique_skus)}
+
+    def get_refresh_queue(self, status: str = "PENDING") -> List[Dict]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT sku, status, reason, payload, enqueued_at, updated_at FROM refresh_queue WHERE status=? ORDER BY updated_at DESC",
+                (status,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_refresh_queue_skus(self) -> List[str]:
-        result = sync_unified_products(self.db_path)
-        return result.get("refresh_queue", {}).get("skus", [])
+        return [row["sku"] for row in self.get_refresh_queue(status="PENDING")]
