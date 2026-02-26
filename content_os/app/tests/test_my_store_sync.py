@@ -17,8 +17,8 @@ class FakeRequester:
         self.fail_429_once = False
         self.fail_401_once = False
 
-    def __call__(self, method, url, headers=None, json=None):
-        self.calls.append((method, url, headers or {}, json or {}))
+    def __call__(self, method, url, headers=None, json=None, data=None):
+        self.calls.append((method, url, headers or {}, json or {}, data or {}))
 
         req = httpx.Request(method, url)
         if url.endswith('/v1/oauth2/token'):
@@ -52,6 +52,37 @@ class TestMyStoreSync(unittest.TestCase):
         c = NaverCommerceClient("https://api", "id", "sec", requester=r)
         token = c.issue_token()
         self.assertEqual(token.access_token, "tok")
+
+
+    def test_issue_token_form_encoded(self):
+        class FormOnlyRequester(FakeRequester):
+            def __call__(self, method, url, headers=None, json=None, data=None):
+                req = httpx.Request(method, url)
+                if url.endswith('/v1/oauth2/token'):
+                    if (headers or {}).get('Content-Type') == 'application/x-www-form-urlencoded' and data:
+                        return httpx.Response(200, json={"access_token": "tok-form", "expires_in": 10800}, request=req)
+                    return httpx.Response(415, json={"error": "unsupported media type"}, request=req)
+                return super().__call__(method, url, headers, json, data)
+
+        r = FormOnlyRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        token = c.issue_token()
+        self.assertEqual(token.access_token, "tok-form")
+
+    def test_issue_token_form_fallback_to_json(self):
+        class JsonOnlyRequester(FakeRequester):
+            def __call__(self, method, url, headers=None, json=None, data=None):
+                req = httpx.Request(method, url)
+                if url.endswith('/v1/oauth2/token'):
+                    if (headers or {}).get('Content-Type') == 'application/json' and json:
+                        return httpx.Response(200, json={"access_token": "tok-json", "expires_in": 10800}, request=req)
+                    return httpx.Response(415, json={"error": "unsupported media type"}, request=req)
+                return super().__call__(method, url, headers, json, data)
+
+        r = JsonOnlyRequester()
+        c = NaverCommerceClient("https://api", "id", "sec", requester=r)
+        token = c.issue_token()
+        self.assertEqual(token.access_token, "tok-json")
 
     def test_get_access_token_cached(self):
         r = FakeRequester()
@@ -102,11 +133,11 @@ class TestMyStoreSync(unittest.TestCase):
 
     def test_fetch_enriched_products_graceful_detail_fail(self):
         class FR(FakeRequester):
-            def __call__(self, method, url, headers=None, json=None):
+            def __call__(self, method, url, headers=None, json=None, data=None):
                 if '/v2/products/channel-products/1001' in url:
                     req = httpx.Request(method, url)
                     return httpx.Response(500, json={"error": "boom"}, request=req)
-                return super().__call__(method, url, headers, json)
+                return super().__call__(method, url, headers, json, data)
 
         r = FR()
         c = NaverCommerceClient("https://api", "id", "sec", requester=r)

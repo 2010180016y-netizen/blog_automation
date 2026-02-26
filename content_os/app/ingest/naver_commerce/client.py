@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -25,6 +26,7 @@ class NaverCommerceClient:
         requester=None,
         max_retries: int = 3,
         timeout_s: float = 15.0,
+        token_body_format: str = "form",
     ):
         self.base_url = base_url.rstrip("/")
         self.client_id = client_id
@@ -33,14 +35,22 @@ class NaverCommerceClient:
         self.max_retries = max_retries
         self.timeout_s = timeout_s
         self._token: Optional[OAuthToken] = None
+        self.token_body_format = token_body_format
 
-    def _request(self, method: str, path: str, headers: Optional[Dict[str, str]] = None, json_body: Optional[Dict[str, Any]] = None):
+    def _request(
+        self,
+        method: str,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+        data_body: Optional[Dict[str, Any]] = None,
+    ):
         url = f"{self.base_url}{path}"
         if self._requester:
-            return self._requester(method=method, url=url, headers=headers, json=json_body)
+            return self._requester(method=method, url=url, headers=headers, json=json_body, data=data_body)
 
         with httpx.Client(timeout=self.timeout_s) as client:
-            return client.request(method=method, url=url, headers=headers, json=json_body)
+            return client.request(method=method, url=url, headers=headers, json=json_body, data=data_body)
 
     def issue_token(self) -> OAuthToken:
         payload = {
@@ -48,10 +58,30 @@ class NaverCommerceClient:
             "client_id": self.client_id,
             "client_secret": self.client_secret,
         }
-        response = self._request("POST", "/v1/oauth2/token", headers={"Content-Type": "application/json"}, json_body=payload)
+        preferred = os.getenv("NAVER_OAUTH_TOKEN_BODY_FORMAT", self.token_body_format).lower()
+
+        if preferred == "json":
+            response = self._request("POST", "/v1/oauth2/token", headers={"Content-Type": "application/json"}, json_body=payload)
+        else:
+            response = self._request(
+                "POST",
+                "/v1/oauth2/token",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data_body=payload,
+            )
+            if response.status_code in (400, 401, 403, 404, 415):
+                response = self._request(
+                    "POST",
+                    "/v1/oauth2/token",
+                    headers={"Content-Type": "application/json"},
+                    json_body=payload,
+                )
+
         response.raise_for_status()
         data = response.json()
         token = data.get("access_token")
+        if not token:
+            raise RuntimeError("missing access_token in OAuth response")
         expires_in = int(data.get("expires_in", 10800))
         self._token = OAuthToken(access_token=token, expires_at=time.time() + expires_in)
         return self._token
