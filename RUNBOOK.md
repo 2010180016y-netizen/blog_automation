@@ -256,3 +256,25 @@ python content_os/scripts/sync_commerce_ssot.py \
 결과:
 - `products_ssot` 테이블 upsert (글 생성/검수/발행의 단일 원천 데이터)
 - 필요 시 `--out-json`으로 시트 연동(구글시트) 파이프라인에 전달 가능
+
+
+## 17) 2트랙 상품 데이터 운영 (내 상품 + 제휴 상품)
+
+안전한 구조:
+- Track A: 내 스토어 상품 = Commerce API 기반 `products_ssot`
+- Track B: 외부 상품 = Shopping Connect 링크 기반 `partner_products`
+
+주의:
+- `shopping_search_api`/`naver_shopping_openapi` 결과를 상업적 SSOT로 직접 사용하지 않음(정책 리스크)
+
+실행:
+```bash
+python content_os/scripts/sync_partner_products.py \
+  --db-path ./blogs.db \
+  --partner-json ./ops/shopping_connect_products.json \
+  --out-json ./content_os/out/two_track_ssot.json
+```
+
+결과:
+- 정책 검증 통과 데이터만 `partner_products` upsert
+- `own_store + partner_store` 통합 SSOT json 생성

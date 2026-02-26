@@ -225,3 +225,23 @@ python scripts/sync_commerce_ssot.py \
 ```
 
 This upserts into `products_ssot` table and can optionally dump rows to JSON for Google Sheet bridge workflows.
+
+
+## Two-track product data strategy (safe monetization)
+
+For sustainable automation, separate product sources:
+- **Track A (own products)**: SmartStore Commerce API SSOT (`products_ssot`)
+- **Track B (third-party products)**: Shopping Connect partner links (`partner_products`)
+
+Do **not** treat Shopping Search/OpenAPI result pools as commercial SSOT source.
+
+Sync partner products + merge two-track SSOT:
+
+```bash
+python scripts/sync_partner_products.py \
+  --db-path ../blogs.db \
+  --partner-json ./ops/shopping_connect_products.json \
+  --out-json ./out/two_track_ssot.json
+```
+
+The sync enforces source validation (commercial use of `shopping_search_api`/`naver_shopping_openapi` is rejected) and exports merged rows (`own_store` + `partner_store`).
