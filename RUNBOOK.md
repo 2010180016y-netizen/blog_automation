@@ -298,3 +298,31 @@ python content_os/scripts/sync_unified_products.py \
 - `MY_STORE`: 가격/옵션/배송/링크 변경 감지 시 리프레시 큐 자동 생성
 - `AFFILIATE_SHOPPING_CONNECT`: 링크를 SSOT로 사용, 가격은 nullable 유지 +
   "가격/혜택은 변동될 수 있음(작성일 기준)" 고지 자동 삽입
+
+
+## 19) P0/P1 추가 모듈 운영 가이드
+
+### P0-1) MY_STORE (커머스API)
+- `sync_commerce_ssot.py` 사용 (목록 + 상세 보강).
+
+### P0-2) AFFILIATE (Shopping Connect 링크 인입)
+JSON/CSV/구글시트 CSV 입력 지원:
+
+```bash
+python content_os/scripts/sync_partner_products.py \
+  --db-path ./blogs.db \
+  --partner-csv ./ops/shopping_connect_links.csv \
+  --out-json ./content_os/out/two_track_ssot.json
+```
+
+검증 항목:
+- source=`shopping_connect`
+- 링크 유효성(HTTP/HTTPS)
+- 카테고리/키워드/콘텐츠 타입 매핑(`landing/review/comparison/shorts`)
+- 비공개/내부 API, 캡차 우회 방식은 설계에서 배제
+
+### P1) MY_BRANDSTORE_ANALYTICS (해당 시)
+```bash
+python content_os/scripts/summarize_brandstore_stats.py \
+  --stats-json ./ops/brandstore_stats.json
+```

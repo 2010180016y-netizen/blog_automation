@@ -263,3 +263,32 @@ python scripts/sync_unified_products.py \
 Rules implemented:
 - `MY_STORE`: price/shipping/link change detection -> refresh queue (`refresh_queue.json`)
 - `AFFILIATE_SHOPPING_CONNECT`: link is SSOT, price left nullable, default disclaimer inserted ("가격/혜택은 변동될 수 있습니다...")
+
+
+## P0/P1 data modules (requested setup)
+
+### P0-1) MY_STORE sync (Commerce API)
+Already supported via `scripts/sync_commerce_ssot.py` (`/v1/products/search` + `/v2` detail enrichment).
+
+### P0-2) AFFILIATE Shopping Connect ingest
+Use Shopping Connect link list from JSON/CSV/Google Sheet CSV and ingest safely:
+
+```bash
+python scripts/sync_partner_products.py \
+  --db-path ../blogs.db \
+  --partner-csv ./ops/shopping_connect_links.csv \
+  --out-json ./out/two_track_ssot.json
+```
+
+Input guardrails:
+- source must be `shopping_connect`
+- valid HTTP(S) affiliate link required
+- `content_type` mapping enforced (`landing/review/comparison/shorts`)
+- disallowed/private scraping-style sources are rejected by design
+
+### P1) MY_BRANDSTORE_ANALYTICS summary
+When brandstore bizdata stats are available:
+
+```bash
+python scripts/summarize_brandstore_stats.py --stats-json ./ops/brandstore_stats.json
+```
