@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.content.naver.generator import generate_naver_affiliate_package
 from app.ingest.affiliate_sc.importer import create_content_queue_candidates, import_affiliate_links_from_csv
-from app.qa.compliance import check_affiliate_disclosure_required
+from app.qa.compliance import check_affiliate_disclosure_required, check_thin_content
 
 
 class TestAffiliateImport(unittest.TestCase):
@@ -33,7 +33,14 @@ class TestAffiliateImport(unittest.TestCase):
             pkg = generate_naver_affiliate_package(rows[0])
             qa = check_affiliate_disclosure_required(pkg)
             self.assertEqual(qa["status"], "PASS")
+            thin = check_thin_content(pkg, min_text_chars=120)
+            self.assertEqual(thin["status"], "PASS")
             self.assertIn("가격/혜택은 작성일 기준", pkg["html"])
+
+    def test_thin_content_reject(self):
+        bad_pkg = {"html": "<h1>짧은글</h1>", "disclosure_required": True}
+        res = check_thin_content(bad_pkg, min_text_chars=50)
+        self.assertEqual(res["status"], "REJECT")
 
 
 if __name__ == "__main__":

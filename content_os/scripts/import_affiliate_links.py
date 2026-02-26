@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.content.naver.generator import generate_naver_affiliate_package
 from app.ingest.affiliate_sc.importer import create_content_queue_candidates, import_affiliate_links_from_csv
-from app.qa.compliance import check_affiliate_disclosure_required
+from app.qa.compliance import check_affiliate_disclosure_required, check_thin_content
 from app.store.shopping_connect_ingest import load_rows_from_csv, normalize_rows
 
 
@@ -19,6 +19,10 @@ def main():
     args = parser.parse_args()
 
     result = import_affiliate_links_from_csv(args.db_path, args.csv_path)
+    if result.get("status") == "REJECT":
+        print(json.dumps({"import": result, "queue_count": 0, "package_count": 0}, ensure_ascii=False, indent=2))
+        return
+
     rows = normalize_rows(load_rows_from_csv(args.csv_path))
 
     queue = create_content_queue_candidates(rows)
@@ -28,9 +32,14 @@ def main():
     qa = []
     for row in rows:
         package = generate_naver_affiliate_package(row)
-        check = check_affiliate_disclosure_required(package)
+        disclosure_check = check_affiliate_disclosure_required(package)
+        thin_content_check = check_thin_content(package)
+
+        checks = [disclosure_check, thin_content_check]
+        final_status = "PASS" if all(c.get("status") == "PASS" for c in checks) else "REJECT"
+
         packages.append(package)
-        qa.append(check)
+        qa.append({"status": final_status, "checks": checks})
 
     with open(os.path.join(args.out_dir, "content_queue.json"), "w", encoding="utf-8") as f:
         json.dump(queue, f, ensure_ascii=False, indent=2)
