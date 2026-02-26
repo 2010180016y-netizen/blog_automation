@@ -233,3 +233,26 @@ python content_os/scripts/monitor_cwv.py \
 - 페이지 유형별 성능 예산(landing/review/comparison) 평가
 - 성능 악화(regression) 자동 탐지
 - 원인 분해(이미지/광고 스크립트/플러그인) 기반 경보 payload 생성
+
+
+## 16) SmartStore SSOT 구축 (Commerce API 정석 플로우)
+
+표준 동기화 패턴:
+- `POST /v1/products/search`로 목록 조회
+- 목록의 `channelProductNo`/`originProductNo`를 사용해
+  - `GET /v2/products/channel-products/{...}`
+  - `GET /v2/products/origin-products/{...}`
+  로 상세 보강
+
+실행:
+```bash
+python content_os/scripts/sync_commerce_ssot.py \
+  --base-url https://api.commerce.naver.com \
+  --token <ACCESS_TOKEN> \
+  --db-path ./blogs.db \
+  --page 1 --size 100
+```
+
+결과:
+- `products_ssot` 테이블 upsert (글 생성/검수/발행의 단일 원천 데이터)
+- 필요 시 `--out-json`으로 시트 연동(구글시트) 파이프라인에 전달 가능

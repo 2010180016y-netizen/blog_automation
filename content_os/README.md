@@ -208,3 +208,20 @@ Supports:
 - per-page-type performance budget (`lcp`, `inp`, `cls`, `ttfb`)
 - regression detection vs previous snapshot
 - probable cause breakdown (`image`, `ad_script`, `plugin`) for alert triage
+
+
+## SmartStore SSOT sync via Commerce API
+
+Build your product SSOT from official Naver Commerce API flow:
+1. `POST /v1/products/search` (list)
+2. `GET /v2/products/channel-products/{channelProductNo}` and/or `GET /v2/products/origin-products/{originProductNo}` (detail enrichment)
+
+```bash
+python scripts/sync_commerce_ssot.py \
+  --base-url https://api.commerce.naver.com \
+  --token <ACCESS_TOKEN> \
+  --db-path ../blogs.db \
+  --page 1 --size 100
+```
+
+This upserts into `products_ssot` table and can optionally dump rows to JSON for Google Sheet bridge workflows.
