@@ -98,8 +98,33 @@ class TestAffiliateImport(unittest.TestCase):
             )
             self.assertEqual(summary["import"]["status"], "PASS")
             qa = json.loads((out_dir / "qa.json").read_text(encoding="utf-8"))
-            self.assertEqual(qa[0]["status"], "REJECT")
-            self.assertEqual(qa[0]["checks"][-1]["code"], "UNIQUE_PACK_REQUIRED")
+            self.assertEqual(qa["schema_version"], "qa.v1")
+            self.assertEqual(qa["items"][0]["status"], "REJECT")
+            self.assertEqual(qa["items"][0]["checks"][-1]["code"], "UNIQUE_PACK_REQUIRED")
+            self.assertTrue((out_dir / "qa_archive").exists())
+
+
+    def test_qa_json_schema_and_archive(self):
+        with tempfile.TemporaryDirectory() as td:
+            csv_path = Path(td) / "aff.csv"
+            csv_path.write_text(
+                "partner_product_id,title,affiliate_link,category,keywords,content_type,source,usage_mode\n"
+                "PT001,제휴상품,https://shoppingconnect.link/abc,가전,필터,review,shopping_connect,commercial\n",
+                encoding="utf-8",
+            )
+            db_path = str(Path(td) / "blogs.db")
+            out_dir = Path(td) / "out"
+
+            run_import_and_package(db_path, str(csv_path), str(out_dir))
+            qa = json.loads((out_dir / "qa.json").read_text(encoding="utf-8"))
+            self.assertEqual(qa["schema_version"], "qa.v1")
+            self.assertIn("generated_at", qa)
+            self.assertIn("summary", qa)
+            self.assertEqual(qa["summary"]["total"], 1)
+            self.assertIn("items", qa)
+            self.assertEqual(len(qa["items"]), 1)
+            archives = list((out_dir / "qa_archive").glob("qa_*.json"))
+            self.assertGreaterEqual(len(archives), 1)
 
     def test_thin_content_reject(self):
         bad_pkg = {"html": "<h1>짧은글</h1>", "disclosure_required": True}

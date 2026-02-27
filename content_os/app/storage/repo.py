@@ -1,10 +1,29 @@
 import json
 import sqlite3
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from ..store.commerce_ssot import ensure_ssot_table, upsert_ssot_rows
 from ..store.unified_products import sync_unified_products
 from .models import ContentEntry
+
+REFRESH_PENDING = "PENDING"
+REFRESH_PROCESSING = "PROCESSING"
+REFRESH_DONE = "DONE"
+REFRESH_FAILED = "FAILED"
+
+
+class RefreshQueueStateMachine:
+    TRANSITIONS = {
+        REFRESH_PENDING: {REFRESH_PROCESSING, REFRESH_FAILED},
+        REFRESH_PROCESSING: {REFRESH_DONE, REFRESH_FAILED, REFRESH_PENDING},
+        REFRESH_FAILED: {REFRESH_PENDING, REFRESH_PROCESSING},
+        REFRESH_DONE: {REFRESH_PENDING},
+    }
+
+    @classmethod
+    def validate(cls, current: str, nxt: str) -> None:
+        if nxt not in cls.TRANSITIONS.get(current, set()):
+            raise ValueError(f"Invalid refresh queue transition: {current} -> {nxt}")
 
 
 def ensure_refresh_queue_table(db_path: str):
@@ -16,11 +35,18 @@ def ensure_refresh_queue_table(db_path: str):
                 status TEXT NOT NULL DEFAULT 'PENDING',
                 reason TEXT NOT NULL DEFAULT 'PRODUCT_CHANGED',
                 payload TEXT,
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
                 enqueued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(refresh_queue)").fetchall()}
+        if "retry_count" not in cols:
+            conn.execute("ALTER TABLE refresh_queue ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0")
+        if "last_error" not in cols:
+            conn.execute("ALTER TABLE refresh_queue ADD COLUMN last_error TEXT")
 
 
 class ContentRepo:
@@ -96,8 +122,8 @@ class ProductRepo:
             for sku in unique_skus:
                 conn.execute(
                     """
-                    INSERT INTO refresh_queue (sku, status, reason, payload, enqueued_at, updated_at)
-                    VALUES (?, 'PENDING', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    INSERT INTO refresh_queue (sku, status, reason, payload, retry_count, last_error, enqueued_at, updated_at)
+                    VALUES (?, 'PENDING', ?, ?, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(sku) DO UPDATE SET
                         status='PENDING',
                         reason=excluded.reason,
@@ -109,14 +135,44 @@ class ProductRepo:
 
         return {"enqueued": len(unique_skus)}
 
-    def get_refresh_queue(self, status: str = "PENDING") -> List[Dict]:
+    def _set_refresh_status(self, sku: str, next_status: str, error: Optional[str] = None, increment_retry: bool = False) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute("SELECT status, retry_count FROM refresh_queue WHERE sku=?", (sku,)).fetchone()
+            if not row:
+                raise ValueError(f"Refresh queue item not found: {sku}")
+            current = str(row[0])
+            RefreshQueueStateMachine.validate(current, next_status)
+
+            retry_sql = "retry_count = retry_count + 1" if increment_retry else "retry_count = retry_count"
+            conn.execute(
+                f"""
+                UPDATE refresh_queue
+                SET status=?, last_error=?, {retry_sql}, updated_at=CURRENT_TIMESTAMP
+                WHERE sku=?
+                """,
+                (next_status, error, sku),
+            )
+
+    def mark_refresh_processing(self, sku: str) -> None:
+        self._set_refresh_status(sku, REFRESH_PROCESSING)
+
+    def mark_refresh_failed(self, sku: str, error: str) -> None:
+        self._set_refresh_status(sku, REFRESH_FAILED, error=error, increment_retry=True)
+
+    def mark_refresh_done(self, sku: str) -> None:
+        self._set_refresh_status(sku, REFRESH_DONE)
+
+    def requeue_refresh_item(self, sku: str) -> None:
+        self._set_refresh_status(sku, REFRESH_PENDING)
+
+    def get_refresh_queue(self, status: str = REFRESH_PENDING) -> List[Dict]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT sku, status, reason, payload, enqueued_at, updated_at FROM refresh_queue WHERE status=? ORDER BY updated_at DESC",
+                "SELECT sku, status, reason, payload, retry_count, last_error, enqueued_at, updated_at FROM refresh_queue WHERE status=? ORDER BY updated_at DESC",
                 (status,),
             ).fetchall()
         return [dict(r) for r in rows]
 
     def get_refresh_queue_skus(self) -> List[str]:
-        return [row["sku"] for row in self.get_refresh_queue(status="PENDING")]
+        return [row["sku"] for row in self.get_refresh_queue(status=REFRESH_PENDING)]

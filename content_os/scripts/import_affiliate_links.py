@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,6 +16,8 @@ from app.qa.compliance import (
     check_unique_pack_required,
 )
 from app.store.shopping_connect_ingest import load_rows_from_csv, normalize_rows
+
+QA_SCHEMA_VERSION = "qa.v1"
 
 
 def _load_json_list(path: Optional[str]) -> List[str]:
@@ -33,6 +36,35 @@ def _load_json_map(path: Optional[str]) -> Dict[str, Dict]:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data if isinstance(data, dict) else {}
+
+
+def _build_qa_report(items: List[Dict], csv_path: str) -> Dict:
+    pass_count = sum(1 for i in items if i.get("status") == "PASS")
+    reject_count = len(items) - pass_count
+    return {
+        "schema_version": QA_SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": {"type": "affiliate_csv", "path": csv_path},
+        "summary": {
+            "total": len(items),
+            "pass": pass_count,
+            "reject": reject_count,
+        },
+        "items": items,
+    }
+
+
+def _write_qa_outputs(out_dir: str, qa_report: Dict) -> None:
+    qa_path = os.path.join(out_dir, "qa.json")
+    with open(qa_path, "w", encoding="utf-8") as f:
+        json.dump(qa_report, f, ensure_ascii=False, indent=2)
+
+    archive_dir = os.path.join(out_dir, "qa_archive")
+    os.makedirs(archive_dir, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    archive_path = os.path.join(archive_dir, f"qa_{ts}.json")
+    with open(archive_path, "w", encoding="utf-8") as f:
+        json.dump(qa_report, f, ensure_ascii=False, indent=2)
 
 
 def run_import_and_package(
@@ -57,7 +89,7 @@ def run_import_and_package(
     unique_pack_results_by_sku = unique_pack_results_by_sku or {}
 
     packages = []
-    qa = []
+    qa_items = []
     for row in rows:
         package = generate_naver_affiliate_package(row)
         disclosure_check = check_affiliate_disclosure_required(package)
@@ -74,16 +106,29 @@ def run_import_and_package(
         final_status = "PASS" if all(c.get("status") == "PASS" for c in checks) else "REJECT"
 
         packages.append(package)
-        qa.append({"status": final_status, "checks": checks})
+        qa_items.append(
+            {
+                "status": final_status,
+                "sku": sku,
+                "checks": checks,
+            }
+        )
 
     with open(os.path.join(out_dir, "content_queue.json"), "w", encoding="utf-8") as f:
         json.dump(queue, f, ensure_ascii=False, indent=2)
     with open(os.path.join(out_dir, "packages.json"), "w", encoding="utf-8") as f:
         json.dump(packages, f, ensure_ascii=False, indent=2)
-    with open(os.path.join(out_dir, "qa.json"), "w", encoding="utf-8") as f:
-        json.dump(qa, f, ensure_ascii=False, indent=2)
 
-    return {"import": result, "queue_count": len(queue), "package_count": len(packages)}
+    qa_report = _build_qa_report(qa_items, csv_path)
+    _write_qa_outputs(out_dir, qa_report)
+
+    return {
+        "import": result,
+        "queue_count": len(queue),
+        "package_count": len(packages),
+        "qa_schema_version": QA_SCHEMA_VERSION,
+        "qa_summary": qa_report["summary"],
+    }
 
 
 def main():

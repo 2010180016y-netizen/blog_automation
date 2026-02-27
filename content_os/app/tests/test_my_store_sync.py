@@ -210,5 +210,39 @@ class TestMyStoreSync(unittest.TestCase):
             self.assertIn("1001", queued)
 
 
+    def test_refresh_queue_state_machine_transitions(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = str(Path(td) / "blogs.db")
+            repo = ProductRepo(db)
+            repo.enqueue_refresh_candidates(["SKU-X"], reason="MY_STORE_SYNC")
+
+            repo.mark_refresh_processing("SKU-X")
+            processing = repo.get_refresh_queue(status="PROCESSING")
+            self.assertEqual(processing[0]["sku"], "SKU-X")
+
+            repo.mark_refresh_failed("SKU-X", error="timeout")
+            failed = repo.get_refresh_queue(status="FAILED")
+            self.assertEqual(failed[0]["sku"], "SKU-X")
+            self.assertEqual(failed[0]["retry_count"], 1)
+            self.assertEqual(failed[0]["last_error"], "timeout")
+
+            repo.requeue_refresh_item("SKU-X")
+            pending = repo.get_refresh_queue(status="PENDING")
+            self.assertEqual(pending[0]["sku"], "SKU-X")
+
+            repo.mark_refresh_processing("SKU-X")
+            repo.mark_refresh_done("SKU-X")
+            done = repo.get_refresh_queue(status="DONE")
+            self.assertEqual(done[0]["sku"], "SKU-X")
+
+    def test_refresh_queue_invalid_transition_raises(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = str(Path(td) / "blogs.db")
+            repo = ProductRepo(db)
+            repo.enqueue_refresh_candidates(["SKU-Y"], reason="MY_STORE_SYNC")
+            with self.assertRaises(ValueError):
+                repo.mark_refresh_done("SKU-Y")
+
+
 if __name__ == "__main__":
     unittest.main()
