@@ -1,10 +1,16 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from app.content.naver.generator import generate_naver_affiliate_package
 from app.ingest.affiliate_sc.importer import create_content_queue_candidates, import_affiliate_links_from_csv
-from app.qa.compliance import check_affiliate_disclosure_required, check_thin_content
+from app.qa.compliance import (
+    check_affiliate_disclosure_required,
+    check_similarity_content,
+    check_thin_content,
+    check_unique_pack_required,
+)
 from scripts.import_affiliate_links import run_import_and_package
 
 
@@ -57,6 +63,43 @@ class TestAffiliateImport(unittest.TestCase):
             self.assertFalse((out_dir / "content_queue.json").exists())
             self.assertFalse((out_dir / "packages.json").exists())
             self.assertFalse((out_dir / "qa.json").exists())
+
+
+    def test_similarity_reject(self):
+        pkg = {
+            "html": "<p>동일 문장 테스트 동일 문장 테스트 동일 문장 테스트 동일 문장 테스트</p>",
+            "disclosure_required": False,
+        }
+        existing = ["동일 문장 테스트 동일 문장 테스트 동일 문장 테스트 동일 문장 테스트"]
+        res = check_similarity_content(pkg, existing_contents=existing, warn_threshold=0.7, reject_threshold=0.8)
+        self.assertEqual(res["status"], "REJECT")
+
+    def test_unique_pack_required_reject_when_missing(self):
+        res = check_unique_pack_required(None, require_unique_pack=True)
+        self.assertEqual(res["status"], "REJECT")
+
+    def test_run_import_and_package_reject_when_unique_pack_required(self):
+        with tempfile.TemporaryDirectory() as td:
+            csv_path = Path(td) / "aff.csv"
+            csv_path.write_text(
+                "partner_product_id,title,affiliate_link,category,keywords,content_type,source,usage_mode\n"
+                "PT001,제휴상품,https://shoppingconnect.link/abc,가전,필터,review,shopping_connect,commercial\n",
+                encoding="utf-8",
+            )
+            db_path = str(Path(td) / "blogs.db")
+            out_dir = Path(td) / "out"
+
+            summary = run_import_and_package(
+                db_path,
+                str(csv_path),
+                str(out_dir),
+                require_unique_pack=True,
+                unique_pack_results_by_sku={},
+            )
+            self.assertEqual(summary["import"]["status"], "PASS")
+            qa = json.loads((out_dir / "qa.json").read_text(encoding="utf-8"))
+            self.assertEqual(qa[0]["status"], "REJECT")
+            self.assertEqual(qa[0]["checks"][-1]["code"], "UNIQUE_PACK_REQUIRED")
 
     def test_thin_content_reject(self):
         bad_pkg = {"html": "<h1>짧은글</h1>", "disclosure_required": True}
