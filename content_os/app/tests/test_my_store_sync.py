@@ -1,4 +1,5 @@
 import sqlite3
+import time
 import tempfile
 import unittest
 from pathlib import Path
@@ -130,6 +131,43 @@ class TestMyStoreSync(unittest.TestCase):
         rows = fetch_enriched_products(c)
         self.assertEqual(rows[0]["sku"], "1001")
         self.assertEqual(rows[0]["price"], 19900)
+
+
+    def test_fetch_enriched_products_parallel_faster_than_serial(self):
+        class SlowBatchRequester(FakeRequester):
+            def __call__(self, method, url, headers=None, json=None, data=None):
+                req = httpx.Request(method, url)
+                if url.endswith('/v1/oauth2/token'):
+                    return httpx.Response(200, json={"access_token": "tok", "expires_in": 10800}, request=req)
+                if url.endswith('/v1/products/search'):
+                    return httpx.Response(
+                        200,
+                        json={
+                            "contents": [
+                                {"channelProductNo": str(i), "originProductNo": str(9000 + i), "name": f"p{i}"}
+                                for i in range(20)
+                            ]
+                        },
+                        request=req,
+                    )
+                if '/v2/products/channel-products/' in url or '/v2/products/origin-products/' in url:
+                    time.sleep(0.01)
+                    return httpx.Response(200, json={"name": "상품", "salePrice": 1000, "productUrl": "https://smart/p"}, request=req)
+                return super().__call__(method, url, headers, json, data)
+
+        c = NaverCommerceClient("https://api", "id", "sec", requester=SlowBatchRequester())
+
+        t0 = time.perf_counter()
+        rows_serial = fetch_enriched_products(c, detail_workers=1)
+        serial_elapsed = time.perf_counter() - t0
+
+        t1 = time.perf_counter()
+        rows_parallel = fetch_enriched_products(c, detail_workers=8)
+        parallel_elapsed = time.perf_counter() - t1
+
+        self.assertEqual(len(rows_serial), 20)
+        self.assertEqual(len(rows_parallel), 20)
+        self.assertLess(parallel_elapsed, serial_elapsed)
 
     def test_fetch_enriched_products_graceful_detail_fail(self):
         class FR(FakeRequester):
