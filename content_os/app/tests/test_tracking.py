@@ -90,5 +90,25 @@ class TestTracking(unittest.TestCase):
         self.assertEqual(payload["content_id"], "p4")
         self.assertIn("email", payload["dropped_keys"][0])
 
+
+    def test_kpi_reports(self):
+        self.collector.collect("page_view", "naver", "c1", "s1", "buy")
+        self.collector.collect("cta_click", "naver", "c1", "s1", "buy")
+        self.collector.collect("copy_coupon", "naver", "c1", "s1", "buy")
+        self.collector.collect("page_view", "google", "c2", "s2", "info")
+
+        funnel = self.aggregator.get_channel_funnel()
+        self.assertTrue(any(r["channel"] == "naver" for r in funnel))
+
+        cohorts = self.aggregator.get_content_cohort_report()
+        self.assertGreaterEqual(len(cohorts), 1)
+        self.assertIn("cohort_date", cohorts[0])
+
+        kpi = self.aggregator.get_kpi_report()
+        self.assertIn("summary_by_content", kpi)
+        self.assertIn("channel_funnel", kpi)
+        self.assertIn("content_cohorts", kpi)
+
+
 if __name__ == "__main__":
     unittest.main()

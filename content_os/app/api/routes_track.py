@@ -91,6 +91,14 @@ async def get_summary():
     return agg.get_summary_by_content()
 
 
+@router.get("/kpi")
+async def get_kpi():
+    from ..track.metrics import MetricsAggregator
+
+    agg = MetricsAggregator()
+    return agg.get_kpi_report()
+
+
 @router.post("/purge")
 async def purge_events(req: RetentionPurgeRequest):
     try:

@@ -42,5 +42,32 @@ class TestSimilarity(unittest.TestCase):
         # Depending on TF-IDF, this might be a WARN or PASS
         self.assertIn(res["status"], ["PASS", "WARN", "REJECT"])
 
+
+    def test_caches_existing_matrix(self):
+        evaluator = SimilarityEvaluator(self.config)
+        target = "alpha beta gamma"
+        existing = ["alpha beta gamma", "delta epsilon"]
+        evaluator.evaluate(target, existing)
+        first_key = evaluator._cache_key
+        self.assertIsNotNone(first_key)
+
+        evaluator.evaluate("new target text", existing)
+        self.assertEqual(evaluator._cache_key, first_key)
+
+    def test_trims_existing_paragraphs_by_config(self):
+        cfg = {
+            "similarity": {
+                "thresholds": {"warn": 0.7, "reject": 0.85},
+                "ignore_sections": [],
+                "max_existing_paragraphs": 3,
+            }
+        }
+        evaluator = SimilarityEvaluator(cfg)
+        target = "a"
+        existing = ["p1", "p2", "p3", "p4", "p5"]
+        trimmed = evaluator._trim_existing_paras(existing)
+        self.assertEqual(trimmed, ["p3", "p4", "p5"])
+
+
 if __name__ == "__main__":
     unittest.main()

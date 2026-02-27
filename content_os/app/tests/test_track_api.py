@@ -38,5 +38,26 @@ class TestTrackAPI(unittest.TestCase):
                 routes_track.collector = original_collector
 
 
+    def test_kpi_endpoint_returns_sections(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = str(Path(td) / "track.db")
+            original_collector = routes_track.collector
+            routes_track.collector = EventCollector(db)
+            try:
+                routes_track.collector.collect("page_view", "naver", "p1", "s1", "buy")
+                routes_track.collector.collect("cta_click", "naver", "p1", "s1", "buy")
+
+                client = TestClient(app)
+                res = client.get("/track/kpi")
+                self.assertEqual(res.status_code, 200)
+                body = res.json()
+                self.assertIn("summary_by_content", body)
+                self.assertIn("channel_funnel", body)
+                self.assertIn("content_cohorts", body)
+            finally:
+                routes_track.collector = original_collector
+
+
+
 if __name__ == "__main__":
     unittest.main()
