@@ -6,6 +6,7 @@ class ComplianceRequest(BaseModel):
     language: str = "ko"
     category: str = "General"
     is_sponsored: bool = False
+    disclosure_required: bool = False
 
 class ComplianceResult(BaseModel):
     status: str  # PASS, WARN, REJECT

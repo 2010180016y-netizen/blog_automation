@@ -32,5 +32,9 @@ class TestInternalLinks(unittest.TestCase):
         for r in rec['recommendations']:
             self.assertTrue(any(phrase in r['anchor'] for phrase in ["보기", "확인하기", "가이드", "활용법", "좋은"]))
 
+        attached = self.recommender.attach_recommendations(clustered_posts)
+        self.assertIn("internal_links", attached[0])
+        self.assertTrue(attached[0]["internal_links"])
+
 if __name__ == "__main__":
     unittest.main()

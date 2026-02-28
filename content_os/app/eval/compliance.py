@@ -1,35 +1,75 @@
+import os
+from pathlib import Path
+from typing import Dict, Tuple
+
 import yaml
-from typing import Dict
+
 from ..schemas import ComplianceRequest, ComplianceResult
 from ..rules.catalog import RuleCatalog
+from .disclosure import apply_disclosure_templates, annotate_affiliate_links
 
-# Mocking the YAML load for this example
-DEFAULT_CONFIG = yaml.safe_load("""
-compliance:
-  categories: ["뷰티", "리빙", "식품", "건기식"]
-  banned_claims:
-    ko: ["무조건", "완치", "보장", "부작용 없음", "100%"]
-    en: ["guaranteed", "cure", "no side effects", "100%"]
-  required_disclosures:
-    ko: ["광고", "협찬", "제휴"]
-    en: ["sponsored", "affiliate"]
-""")
+
+DEFAULT_RULESET_PATH = Path(__file__).resolve().parent.parent / "rules" / "compliance_rules.v1.yaml"
+
+
+def load_ruleset(path: str = None) -> Tuple[Dict, str]:
+    ruleset_path = Path(path or os.getenv("COMPLIANCE_RULESET_PATH", str(DEFAULT_RULESET_PATH)))
+    with open(ruleset_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    version = str(config.get("version", "unversioned"))
+    return config, version
+
 
 class ComplianceEvaluator:
-    def __init__(self, config: Dict = DEFAULT_CONFIG):
-        self.catalog = RuleCatalog(config)
+    def __init__(self, config: Dict = None, ruleset_path: str = None):
+        if config is None:
+            loaded_config, version = load_ruleset(ruleset_path)
+            self.ruleset_version = version
+            self.config = loaded_config
+        else:
+            self.ruleset_version = str(config.get("version", "inline"))
+            self.config = config
+
+        self.catalog = RuleCatalog(self.config)
+
+    def apply_disclosures(self, title: str, content: str, language: str, disclosure_required: bool) -> Dict[str, str]:
+        templates = self.config.get("compliance", {}).get("disclosure_templates", {})
+        link_templates = self.config.get("compliance", {}).get("affiliate_link_disclosures", {})
+
+        next_title, next_content, applied = apply_disclosure_templates(
+            title=title,
+            content=content,
+            language=language,
+            disclosure_required=disclosure_required,
+            templates=templates,
+        )
+
+        link_template = link_templates.get(language, "")
+        affiliate_domains = self.config.get("compliance", {}).get("affiliate_domains", [])
+        if disclosure_required and link_template:
+            next_content = annotate_affiliate_links(next_content, language, link_template, affiliate_domains)
+            applied.append("affiliate_link_template")
+
+        return {
+            "title": next_title,
+            "content": next_content,
+            "applied": ",".join(sorted(set(applied))),
+            "ruleset_version": self.ruleset_version,
+        }
 
     def evaluate(self, request: ComplianceRequest) -> ComplianceResult:
         rules = self.catalog.get_rules(request.language)
         context = {
             "is_sponsored": request.is_sponsored,
-            "category": request.category
+            "disclosure_required": request.disclosure_required,
+            "category": request.category,
         }
-        
+
         fails = []
         warns = []
-        suggestions = []
-        
+        suggestions = [f"RULESET_VERSION={self.ruleset_version}"]
+
         for rule in rules:
             res = rule.evaluate(request.content, context)
             if res:
@@ -48,10 +88,10 @@ class ComplianceEvaluator:
             status = "REJECT"
         elif warns:
             status = "WARN"
-            
+
         return ComplianceResult(
             status=status,
             fail=fails,
             warn=warns,
-            suggestions=suggestions
+            suggestions=suggestions,
         )
