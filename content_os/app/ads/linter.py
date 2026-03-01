@@ -1,45 +1,127 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
+
+from bs4 import BeautifulSoup
+
 from .dom_utils import DomUtils
 
+
 class AdsLinter:
+    """Static ad UX linter to protect long-term ad policy safety.
+
+    Because no runtime layout engine is available, we approximate physical distance
+    by DOM proximity and sibling block density around ad slots.
+    """
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.rules = config.get("ads_ux", {}).get("rules", {})
-        self.min_dist = self.rules.get("min_distance_from_cta_px", 120)
-        self.forbidden_near = self.rules.get("forbid_near_elements", ["button", "input", "select"])
+
+        # Keep px config for reporting intent even though this linter is static.
+        self.min_dist_px = int(self.rules.get("min_distance_from_cta_px", 120))
+
+        self.forbidden_near = self.rules.get("forbid_near_elements", ["button", "input", "select", "textarea"])
+        self.cta_selectors = self.rules.get(
+            "cta_selectors",
+            [".cta-button", "a.cta", "a.buy-now", "button.cta-button"],
+        )
+        self.reject_if_gap_nodes_le = int(self.rules.get("reject_if_gap_nodes_le", 0))
+        self.warn_if_gap_nodes_le = int(self.rules.get("warn_if_gap_nodes_le", 2))
+
+    def _interactive_selector_list(self) -> List[str]:
+        base = [tag for tag in self.forbidden_near]
+        return base + list(self.cta_selectors)
+
+    @staticmethod
+    def _normalized_info(element: Any) -> Dict[str, Any]:
+        info = DomUtils.get_element_info(element)
+        info["path_hint"] = f"{element.name}#{element.get('id', '')}" if element else "unknown"
+        return info
+
+    @staticmethod
+    def _same_parent_gap(ad: Any, target: Any) -> Optional[int]:
+        if not ad or not target or ad.parent is None or target.parent is None:
+            return None
+        if ad.parent != target.parent:
+            return None
+
+        siblings = [c for c in ad.parent.children if getattr(c, "name", None)]
+        try:
+            ad_idx = siblings.index(ad)
+            tgt_idx = siblings.index(target)
+        except ValueError:
+            return None
+        return abs(tgt_idx - ad_idx) - 1
 
     def lint(self, html: str) -> Dict[str, Any]:
-        """
-        Performs static analysis on HTML to find UX violations in ad placement.
-        Note: Since this is static analysis, 'distance' is approximated by DOM proximity.
-        """
-        violations = []
-        
-        # 1. Find all ads (assuming they have a specific class or tag)
-        ads = DomUtils.find_elements(html, [".ad-unit", "ins.adsbygoogle", ".cos-ad"])
-        
-        # 2. Find interactive elements
-        interactive_selectors = [f"{tag}" for tag in self.forbidden_near]
-        interactive_selectors.append(".cta-button")
-        interactive_elements = DomUtils.find_elements(html, interactive_selectors)
+        """Run ad proximity checks and return PASS/WARN/REJECT report."""
+        if not html or not str(html).strip():
+            return {
+                "status": "PASS",
+                "violations": [],
+                "summary": {
+                    "reject_count": 0,
+                    "warn_count": 0,
+                    "checked_ad_units": 0,
+                    "min_distance_from_cta_px": self.min_dist_px,
+                },
+            }
 
+        soup = BeautifulSoup(html, "html.parser")
+        ads = soup.select(".ad-unit, ins.adsbygoogle, .cos-ad")
+        interactive_elements = soup.select(",".join(self._interactive_selector_list()))
+
+        violations: List[Dict[str, Any]] = []
         for ad in ads:
-            ad_info = DomUtils.get_element_info(ad)
-            
-            # Check immediate siblings for forbidden elements
-            # This is a simplified proxy for 'distance' in static analysis
-            siblings = ad.find_next_siblings() + ad.find_previous_siblings()
-            for sibling in siblings:
-                if sibling.name in self.forbidden_near or "cta-button" in sibling.get('class', []):
-                    violations.append({
-                        "level": "REJECT",
-                        "message": f"Ad is immediately adjacent to interactive element: <{sibling.name}>",
-                        "ad": ad_info,
-                        "offending_element": DomUtils.get_element_info(sibling)
-                    })
+            ad_info = self._normalized_info(ad)
+            for target in interactive_elements:
+                # ignore same node case
+                if ad is target:
+                    continue
+
+                gap_nodes = self._same_parent_gap(ad, target)
+                if gap_nodes is None:
+                    continue
+
+                level = None
+                if gap_nodes <= self.reject_if_gap_nodes_le:
+                    level = "REJECT"
+                elif gap_nodes <= self.warn_if_gap_nodes_le:
+                    level = "WARN"
+
+                if level:
+                    violations.append(
+                        {
+                            "level": level,
+                            "message": (
+                                f"Ad too close to interactive element in static DOM proximity check "
+                                f"(gap_nodes={gap_nodes}, min_distance_from_cta_px={self.min_dist_px})."
+                            ),
+                            "ad": ad_info,
+                            "offending_element": self._normalized_info(target),
+                            "gap_nodes": gap_nodes,
+                            "rule": {
+                                "reject_if_gap_nodes_le": self.reject_if_gap_nodes_le,
+                                "warn_if_gap_nodes_le": self.warn_if_gap_nodes_le,
+                            },
+                        }
+                    )
+
+        reject_count = len([v for v in violations if v["level"] == "REJECT"])
+        warn_count = len([v for v in violations if v["level"] == "WARN"])
+
+        status = "PASS"
+        if reject_count > 0:
+            status = "REJECT"
+        elif warn_count > 0:
+            status = "WARN"
 
         return {
-            "status": "FAIL" if violations else "PASS",
+            "status": status,
             "violations": violations,
-            "summary": f"Found {len(violations)} violations."
+            "summary": {
+                "reject_count": reject_count,
+                "warn_count": warn_count,
+                "checked_ad_units": len(ads),
+                "min_distance_from_cta_px": self.min_dist_px,
+            },
         }

@@ -32,6 +32,19 @@ class TestCompliance(unittest.TestCase):
         res = self.evaluator.evaluate(req)
         self.assertEqual(res.status, "REJECT")
 
+
+    def test_affiliate_disclosure_required_ko(self):
+        req = ComplianceRequest(content="일반 소개 문구", language="ko", disclosure_required=True)
+        res = self.evaluator.evaluate(req)
+        self.assertEqual(res.status, "REJECT")
+        self.assertTrue(any(f['code'] == "KO_AFFILIATE_MISSING_DISCLOSURE" for f in res.fail))
+
+    def test_affiliate_disclosure_required_en(self):
+        req = ComplianceRequest(content="General review text", language="en", disclosure_required=True)
+        res = self.evaluator.evaluate(req)
+        self.assertEqual(res.status, "REJECT")
+        self.assertTrue(any(f['code'] == "EN_AFFILIATE_MISSING_DISCLOSURE" for f in res.fail))
+
     def test_ymyl_warning(self):
         req = ComplianceRequest(content="건강 정보입니다.", language="ko", category="건강")
         res = self.evaluator.evaluate(req)

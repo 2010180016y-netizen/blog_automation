@@ -3,10 +3,12 @@ from .schemas import ComplianceRequest, ComplianceResult
 from .eval.compliance import ComplianceEvaluator
 from .api.routes_publish import router as publish_router
 from .api.routes_track import router as track_router
+from .api.routes_queue import router as queue_router
 
 app = FastAPI(title="Content Compliance Engine")
 app.include_router(publish_router)
 app.include_router(track_router)
+app.include_router(queue_router)
 evaluator = ComplianceEvaluator()
 
 @app.post("/check", response_model=ComplianceResult)

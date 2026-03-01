@@ -17,10 +17,22 @@ class KoBannedClaimsRule(BaseRule):
 
 class KoDisclosureRule(BaseRule):
     def evaluate(self, content: str, context: Dict) -> Dict:
-        if context.get("is_sponsored") and not any(word in content[:100] for word in ["광고", "협찬", "제휴"]):
+        missing = not any(word in content[:100] for word in ["광고", "협찬", "제휴"])
+        if not missing:
+            return None
+
+        if context.get("disclosure_required"):
+            return {
+                "status": "REJECT",
+                "code": "KO_AFFILIATE_MISSING_DISCLOSURE",
+                "detail": "제휴 콘텐츠는 본문 상단에 광고/협찬/제휴 표기가 필수입니다."
+            }
+
+        if context.get("is_sponsored"):
             return {
                 "status": "REJECT",
                 "code": "KO_MISSING_DISCLOSURE",
                 "detail": "본문 상단에 광고/협찬/제휴 표기가 누락되었습니다."
             }
+
         return None

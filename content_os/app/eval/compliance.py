@@ -23,7 +23,8 @@ class ComplianceEvaluator:
         rules = self.catalog.get_rules(request.language)
         context = {
             "is_sponsored": request.is_sponsored,
-            "category": request.category
+            "category": request.category,
+            "disclosure_required": request.disclosure_required
         }
         
         fails = []

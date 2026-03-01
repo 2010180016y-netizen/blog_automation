@@ -1,0 +1,18 @@
+{
+  "title": "[COMPARE] AB-PROD-1 비교 분석 (Variant A)",
+  "summary": "AB-PROD-1를 compare 관점으로 분석한 네이버 블로그 발행 패키지입니다. 사용법/근거/예시/추천·비추천/체크리스트/비교표/FAQ/주의사항/엣지케이스를 포함합니다.",
+  "tags": [
+    "AB-PROD-1",
+    "compare",
+    "AFFILIATE",
+    "네이버블로그",
+    "구매가이드"
+  ],
+  "category": "커머스/가이드",
+  "cta_link": "https://example.com/product?variant=A",
+  "content_id": "ab_demo_001",
+  "product_id": "AB-PROD-1",
+  "source_type": "AFFILIATE",
+  "intent": "compare",
+  "variant": "A"
+}

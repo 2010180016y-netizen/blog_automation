@@ -20,6 +20,16 @@ FIX_GUIDES = {
         "action": "Add [Sponsored] or [Affiliate] disclosure at the beginning of the post.",
         "priority": "HIGH"
     },
+    "KO_AFFILIATE_MISSING_DISCLOSURE": {
+        "title": "제휴 표기 누락",
+        "action": "제휴 글은 본문 최상단에 [광고]/[협찬]/[제휴] 문구를 반드시 삽입하세요.",
+        "priority": "HIGH"
+    },
+    "EN_AFFILIATE_MISSING_DISCLOSURE": {
+        "title": "Affiliate Disclosure Missing",
+        "action": "Affiliate posts must include [Sponsored]/[Affiliate] disclosure at the top.",
+        "priority": "HIGH"
+    },
     "YMYL_MISSING_DISCLAIMER": {
         "title": "면책 문구 추가",
         "action": "본문 하단에 '본 내용은 전문가의 의견을 대신할 수 없습니다' 문구를 추가하세요.",

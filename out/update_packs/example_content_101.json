@@ -1,0 +1,65 @@
+{
+  "content_id": "101",
+  "product_id": "PID-1001",
+  "sku": "SKU-1001",
+  "intent": "review",
+  "trigger": [
+    "price",
+    "shipping",
+    "faq_added",
+    "cs"
+  ],
+  "generated_at": "2026-03-01T00:00:00+00:00",
+  "update_pack": [
+    {
+      "target": {
+        "section": "가격/혜택",
+        "paragraph": 2
+      },
+      "field": "price",
+      "new_data": 17900,
+      "old_data": 19900
+    },
+    {
+      "target": {
+        "section": "배송/교환",
+        "paragraph": 1
+      },
+      "field": "shipping",
+      "new_data": "당일 발송 + 무료 배송",
+      "old_data": "익일 발송 + 유료 배송"
+    },
+    {
+      "target": {
+        "section": "FAQ",
+        "paragraph": 1
+      },
+      "field": "faq_added",
+      "new_data": [
+        "당일발송 가능?"
+      ],
+      "old_data": [
+        "배송은?"
+      ]
+    },
+    {
+      "target": {
+        "section": "FAQ",
+        "paragraph": 2
+      },
+      "field": "cs",
+      "new_data": "평균 12시간 내 상담 응답",
+      "old_data": "평균 24시간 내 상담 응답"
+    }
+  ],
+  "change_log": [
+    {
+      "order": 1,
+      "field": "price",
+      "message": "price 변경 감지",
+      "old": 19900,
+      "new": 17900,
+      "detected_at": "2026-03-01T00:00:00+00:00"
+    }
+  ]
+}
