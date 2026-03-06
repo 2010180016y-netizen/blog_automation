@@ -22,7 +22,9 @@ class NaverValidator:
         stuffing_detected = [w for w, c in word_counts.items() if c > 15 and len(w) > 1] # Simple threshold
         
         # 2. Check commercial balance (Link density)
-        link_ratio = len(links) / (len(words) / 100) if words else 0
+        # Normalize to a minimum 100-word baseline so short posts are not over-penalized.
+        word_baseline = max(len(words), 100)
+        link_ratio = len(links) / (word_baseline / 100) if words else 0
         is_too_commercial = link_ratio > 5 # More than 5 links per 100 words
         
         # 3. Unique Experience Check (Images/Tables)

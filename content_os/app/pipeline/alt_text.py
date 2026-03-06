@@ -1,10 +1,11 @@
-import os
+from .image_seo import generate_descriptive_alt_text
 
-def generate_alt_text(image_path: str, sku: str, context: str = "") -> str:
-    """Generates alt text for an image. LLM integration point."""
-    filename = os.path.basename(image_path)
-    # Rule-based fallback
-    base_alt = f"Image of {sku} - {filename}"
-    if "frame" in filename:
-        return f"Video highlight of {sku} showing product in use"
-    return base_alt
+
+def generate_alt_text(image_path: str, sku: str, context: str = "", primary_keyword: str = "") -> str:
+    """Generate human-readable, description-first alt text with anti-stuffing guardrails."""
+    return generate_descriptive_alt_text(
+        image_path=image_path,
+        sku=sku,
+        context=context or "product usage scene",
+        primary_keyword=primary_keyword,
+    )

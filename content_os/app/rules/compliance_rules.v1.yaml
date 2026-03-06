@@ -1,0 +1,25 @@
+version: "2026.02.v2"
+compliance:
+  categories: ["뷰티", "리빙", "식품", "건기식"]
+  banned_claims:
+    ko: ["무조건", "완치", "보장", "부작용 없음", "100%"]
+    en: ["guaranteed", "cure", "no side effects", "100%"]
+  required_disclosures:
+    ko: ["광고", "협찬", "제휴", "경제적 이해관계"]
+    en: ["sponsored", "affiliate", "commission", "paid partnership"]
+  affiliate_domains:
+    - "bit.ly"
+    - "amzn.to"
+    - "link.coupang.com"
+    - "partnershop"
+  affiliate_disclosure_window_chars: 220
+  disclosure_templates:
+    ko:
+      title_prefix: "[광고·제휴 안내]"
+      body_prefix: "[경제적 이해관계 고지] 본 글에는 협찬/제휴 링크가 포함될 수 있으며, 구매 시 수수료를 받을 수 있습니다."
+    en:
+      title_prefix: "[Sponsored/Affiliate Disclosure]"
+      body_prefix: "[Disclosure] This content may include sponsored or affiliate links, and we may earn a commission at no extra cost to you."
+  affiliate_link_disclosures:
+    ko: "※ 제휴 링크 안내: 아래 링크를 통해 구매 시 수수료를 받을 수 있습니다."
+    en: "Disclosure: We may earn a commission from the affiliate link below."

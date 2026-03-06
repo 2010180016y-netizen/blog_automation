@@ -12,10 +12,15 @@ class InsightExtractor:
         """
         questions = []
         for item in data:
-            if item.get("type") in self.sources:
+            item_type = item.get("type")
+            text = item.get("text", "")
+            is_supported = item_type in self.sources
+            is_question = item_type == "blog_faq" or text.strip().endswith("?")
+
+            if is_supported and is_question:
                 questions.append({
-                    "question": item.get("text"),
-                    "source": item.get("type"),
+                    "question": text,
+                    "source": item_type,
                     "frequency": item.get("count", 1)
                 })
         
